@@ -1,0 +1,19 @@
+forge-ai/
+│
+├── forge/
+│   ├── __init__.py
+│   ├── cli.py
+│   ├── config.py
+│   ├── logger.py
+│   ├── events.py
+│   ├── plugins.py
+│   ├── memory/
+│   ├── workflow/
+│   ├── tasks/
+│   ├── agents/
+│   └── api/
+│
+├── tests/
+├── docs/
+├── docker/
+└── README.md
