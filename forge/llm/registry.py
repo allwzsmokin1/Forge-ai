@@ -18,7 +18,7 @@ class ProviderRegistry:
     def register(self, provider: LLMProvider) -> None:
         self._providers[provider.name] = provider
         if provider.name == self._default_provider.name:
-            self._default_provider = self._providers[provider.name]
+            self._default_provider = provider
 
     def get(self, name: str | None = None) -> LLMProvider:
         if name is None:

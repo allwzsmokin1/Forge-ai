@@ -1,5 +1,7 @@
 """Tests for the Forge-AI LLM provider system."""
 
+from typing import Any
+
 import pytest
 
 from forge.agents import coder as coder_module
@@ -23,7 +25,7 @@ class StaticProvider(LLMProvider):
     def description(self) -> str:
         return "Static test provider."
 
-    def generate(self, prompt: str, **kwargs: object) -> LLMResponse:
+    def generate(self, prompt: str, **kwargs: Any) -> LLMResponse:
         return LLMResponse(text=self._text, metadata={"prompt": prompt, "options": kwargs})
 
 
