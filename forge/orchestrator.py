@@ -98,7 +98,7 @@ class OrchestratorAgent:
         """Execute the full workflow for a single user goal."""
 
         self._logger.info("Starting orchestration for goal: %s", goal)
-        planner = self._resolve_agent_for_type("planner")
+        planner = self._resolve_agent_by_task_type("planner")
         if planner is None:
             raise RuntimeError("No planner agent registered")
 
@@ -208,7 +208,7 @@ class OrchestratorAgent:
 
         return None if best_match is None else best_match[2]
 
-    def _resolve_agent_for_type(self, task_type: str) -> BaseAgent | None:
+    def _resolve_agent_by_task_type(self, task_type: str) -> BaseAgent | None:
         lowered = task_type.lower()
         for _, agent in self._agents:
             if lowered in {name.lower() for name in agent.supported_task_types}:
@@ -236,7 +236,7 @@ class OrchestratorAgent:
         agent_name: str,
         error: str,
     ) -> None:
-        debug_agent = self._resolve_agent_for_type("debug")
+        debug_agent = self._resolve_agent_by_task_type("debug")
         if debug_agent is None or debug_agent.name == agent_name:
             return
 
