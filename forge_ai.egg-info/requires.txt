@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+typer
+rich
+pydantic
+sqlalchemy
+alembic
+pyyaml
+
+[dev]
+pytest
+ruff
+black
