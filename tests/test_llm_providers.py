@@ -93,6 +93,21 @@ def test_coder_agent_uses_selected_provider() -> None:
     assert result.explanation == "Custom response"
 
 
+def test_coder_agent_handles_unstructured_provider_response() -> None:
+    original_provider = registry.get()
+    provider = StaticProvider("coder-unstructured", "def fallback() -> str:\n    return 'ok'")
+    registry.register(provider)
+    registry.set_default(provider.name)
+
+    try:
+        result = CoderAgent().run("Write something")
+    finally:
+        registry.set_default(original_provider.name)
+
+    assert result.code == "def fallback() -> str:\n    return 'ok'"
+    assert result.explanation == ""
+
+
 def test_research_agent_uses_selected_provider() -> None:
     original_provider = registry.get()
     provider = StaticProvider(
@@ -110,3 +125,19 @@ def test_research_agent_uses_selected_provider() -> None:
     assert result.topic == "Async patterns"
     assert result.findings == "Custom findings"
     assert result.recommendations == "Custom recommendations"
+
+
+def test_research_agent_handles_unstructured_provider_response() -> None:
+    original_provider = registry.get()
+    provider = StaticProvider("research-unstructured", "Fallback research guidance")
+    registry.register(provider)
+    registry.set_default(provider.name)
+
+    try:
+        result = ResearchAgent().run("Async patterns")
+    finally:
+        registry.set_default(original_provider.name)
+
+    assert result.topic == "Async patterns"
+    assert result.findings == "Fallback research guidance"
+    assert result.recommendations == ""
