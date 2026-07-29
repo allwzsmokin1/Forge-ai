@@ -22,6 +22,7 @@ from .agents import (
 from .config import Settings, settings
 from .logger import logger
 from .memory import MemoryManager
+from .runtime import RuntimeManager
 from .scheduler import (
     TASK_STATUS_COMPLETED,
     TASK_STATUS_FAILED,
@@ -30,6 +31,10 @@ from .scheduler import (
     TaskGraph,
     TaskScheduler,
 )
+
+AGENT_PERMISSIONS: dict[str, tuple[str, ...]] = {
+    "GitAgent": ("tool:git",),
+}
 
 
 @dataclass(frozen=True)
@@ -66,6 +71,7 @@ class OrchestratorAgent(BaseAgent):
         memory_path: str | None = None,
         config: Settings | None = None,
         scheduler: TaskScheduler | None = None,
+        runtime_manager: RuntimeManager | None = None,
     ) -> None:
         self._settings = config or settings
         self._logger = logger_instance or logger
@@ -84,7 +90,20 @@ class OrchestratorAgent(BaseAgent):
             backoff_seconds=self._settings.retry_backoff_seconds,
         )
         self._scheduler = scheduler or TaskScheduler(max_workers=self._settings.max_parallel_tasks)
+        self._runtime = runtime_manager or self._build_runtime()
         self._register_builtin_agents()
+
+    @property
+    def runtime(self) -> RuntimeManager:
+        return self._runtime
+
+    def _build_runtime(self) -> RuntimeManager:
+        from .tools import builtin_tools
+
+        runtime = RuntimeManager(default_retries=self._settings.default_task_retries)
+        for tool in builtin_tools():
+            runtime.registry.register(tool)
+        return runtime
 
     @property
     def name(self) -> str:
@@ -149,6 +168,9 @@ class OrchestratorAgent(BaseAgent):
 
         normalized_keywords = tuple(keyword.lower() for keyword in keywords)
         normalized_task_types = tuple(task_type.lower() for task_type in (task_types or ()))
+        agent.set_runtime(self._runtime)
+        for permission in AGENT_PERMISSIONS.get(agent.name, ()):
+            self._runtime.permissions.grant(agent.name, permission)
         self._agents.append((normalized_keywords, normalized_task_types, agent))
         self._logger.info(
             "event=agent_registered agent=%s keywords=%s task_types=%s",

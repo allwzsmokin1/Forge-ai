@@ -29,8 +29,22 @@ class GitAgent(BaseAgent):
 
     def run(self, prompt: str, **kwargs: object) -> GitAction:
         request = prompt.strip() or "repository update"
+        runtime_summary = ""
+        tool_result = self.request_tool(
+            capability="git",
+            action="status",
+            payload={"cwd": kwargs.get("cwd")},
+        )
+        if tool_result and tool_result.success and isinstance(tool_result.data, dict):
+            stdout = str(tool_result.data.get("stdout", "")).strip()
+            runtime_summary = (
+                f" Current git status:\n{stdout}" if stdout else " Working tree is clean."
+            )
+        elif tool_result and tool_result.error:
+            runtime_summary = f" Runtime git check unavailable ({tool_result.error})."
+
         return GitAction(
-            summary=f"Prepare repository changes for: {request}",
+            summary=f"Prepare repository changes for: {request}.{runtime_summary}",
             recommended_branch_action="Review the diff and create a focused commit once validation passes.",
             ready_to_commit=True,
         )
