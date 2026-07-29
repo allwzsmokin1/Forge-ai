@@ -26,7 +26,9 @@ class ArchiveTool(RuntimeTool):
             source = Path(str(payload.get("source", "")))
             destination = Path(str(payload.get("destination", "")))
             if not source.exists():
-                return ToolExecutionResult(success=False, error=f"Source path does not exist: {source}")
+                return ToolExecutionResult(
+                    success=False, error=f"Source path does not exist: {source}"
+                )
             destination.parent.mkdir(parents=True, exist_ok=True)
             with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
                 if source.is_file():
@@ -45,4 +47,6 @@ class ArchiveTool(RuntimeTool):
                 archive.extractall(destination)
             return ToolExecutionResult(success=True, output=str(destination))
 
-        return ToolExecutionResult(success=False, error=f"Unsupported archive operation: {operation}")
+        return ToolExecutionResult(
+            success=False, error=f"Unsupported archive operation: {operation}"
+        )

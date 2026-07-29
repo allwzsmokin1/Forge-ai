@@ -5,7 +5,12 @@ from __future__ import annotations
 import abc
 from typing import Any
 
-from ..runtime import ToolExecutionRequest, ToolExecutionResult, ToolRuntimeManager, get_default_runtime
+from ..runtime import (
+    ToolExecutionRequest,
+    ToolExecutionResult,
+    ToolRuntimeManager,
+    get_default_runtime,
+)
 
 
 class BaseAgent(abc.ABC):
@@ -56,5 +61,6 @@ class BaseAgent(abc.ABC):
             retries=retries,
         )
         return self.runtime.execute(request)
+
     def __init__(self, runtime: ToolRuntimeManager | None = None) -> None:
         self.runtime = runtime or get_default_runtime()

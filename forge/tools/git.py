@@ -40,4 +40,6 @@ class GitTool(RuntimeTool):
         )
 
     def health_check(self) -> HealthCheckResult:
-        return HealthCheckResult(name=self.name, healthy=shutil.which("git") is not None, details={})
+        return HealthCheckResult(
+            name=self.name, healthy=shutil.which("git") is not None, details={}
+        )

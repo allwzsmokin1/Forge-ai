@@ -36,7 +36,9 @@ class TerminalTool(RuntimeTool):
         return ToolExecutionResult(
             success=completed.returncode == 0,
             output={"stdout": completed.stdout, "stderr": completed.stderr},
-            error=None if completed.returncode == 0 else f"Command failed with {completed.returncode}",
+            error=(
+                None if completed.returncode == 0 else f"Command failed with {completed.returncode}"
+            ),
             metadata={"returncode": completed.returncode, "agent": context.agent},
         )
 

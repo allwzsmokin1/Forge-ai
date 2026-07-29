@@ -20,25 +20,26 @@ class DummyTool(RuntimeTool):
 def test_registry_discovers_plugin_tools(tmp_path) -> None:
     plugin_file = tmp_path / "sample_plugin.py"
     plugin_file.write_text(
-        "\n".join(
-            [
-                "from forge.tools import RuntimeTool",
-                "from forge.runtime import ToolExecutionResult, ToolContext",
-                "",
-                "class PluginTool(RuntimeTool):",
-                "    @property",
-                "    def name(self):",
-                "        return 'plugin_tool'",
-                "    @property",
-                "    def capabilities(self):",
-                "        return ('plugin.capability',)",
-                "    def execute(self, payload, context: ToolContext):",
-                "        return ToolExecutionResult(success=True, output={'from': 'plugin'})",
-                "",
-                "def register_tools(registry):",
-                "    registry.register(PluginTool())",
-            ]
-        ),
+        """from forge.tools import RuntimeTool
+from forge.runtime import ToolContext, ToolExecutionResult
+
+
+class PluginTool(RuntimeTool):
+    @property
+    def name(self):
+        return 'plugin_tool'
+
+    @property
+    def capabilities(self):
+        return ('plugin.capability',)
+
+    def execute(self, payload, context: ToolContext):
+        return ToolExecutionResult(success=True, output={'from': 'plugin'})
+
+
+def register_tools(registry):
+    registry.register(PluginTool())
+""",
         encoding="utf-8",
     )
 

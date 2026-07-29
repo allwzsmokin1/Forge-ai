@@ -46,4 +46,6 @@ class FilesystemTool(RuntimeTool):
                 path.unlink()
             return ToolExecutionResult(success=True, output=str(path))
 
-        return ToolExecutionResult(success=False, error=f"Unsupported filesystem operation: {operation}")
+        return ToolExecutionResult(
+            success=False, error=f"Unsupported filesystem operation: {operation}"
+        )

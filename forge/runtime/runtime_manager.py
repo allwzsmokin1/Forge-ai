@@ -6,8 +6,8 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Iterable
 
 from .dependency_injection import ServiceContainer
 from .events import EventBus
@@ -95,7 +95,7 @@ class ToolRuntimeManager:
 
                 self.metrics.record_failure(tool.name, elapsed)
                 last_error = RuntimeError(result.error or "Tool execution failed")
-            except Exception as exc:  # pragma: no cover - defensive
+            except Exception as exc:  # noqa: BLE001  # pragma: no cover - defensive
                 elapsed = time.perf_counter() - start
                 self.metrics.record_failure(request.tool, elapsed)
                 last_error = exc
@@ -133,7 +133,11 @@ class ToolRuntimeManager:
 
     def collect_health(self) -> RuntimeHealthReport:
         checks: list[HealthCheckResult] = [
-            HealthCheckResult(name="registry", healthy=True, details={"tool_count": len(self.registry.list_tools())})
+            HealthCheckResult(
+                name="registry",
+                healthy=True,
+                details={"tool_count": len(self.registry.list_tools())},
+            )
         ]
         for tool_name in self.registry.list_tools():
             tool = self.registry.get(tool_name)

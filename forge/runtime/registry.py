@@ -47,7 +47,9 @@ class ToolRegistry:
 
         discovered: list[str] = []
         for plugin_file in sorted(path.glob("*.py")):
-            spec = importlib.util.spec_from_file_location(f"forge_plugin_{plugin_file.stem}", plugin_file)
+            spec = importlib.util.spec_from_file_location(
+                f"forge_plugin_{plugin_file.stem}", plugin_file
+            )
             if spec is None or spec.loader is None:
                 continue
             module = importlib.util.module_from_spec(spec)

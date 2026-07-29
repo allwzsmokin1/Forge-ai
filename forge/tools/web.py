@@ -26,7 +26,7 @@ class WebTool(RuntimeTool):
 
         timeout = payload.get("timeout", 10)
         try:
-            with urlopen(url, timeout=timeout) as response:  # noqa: S310
+            with urlopen(url, timeout=timeout) as response:
                 body = response.read().decode("utf-8", errors="replace")
                 return ToolExecutionResult(
                     success=True,

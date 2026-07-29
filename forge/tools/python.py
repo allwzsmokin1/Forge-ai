@@ -36,9 +36,13 @@ class PythonTool(RuntimeTool):
         return ToolExecutionResult(
             success=completed.returncode == 0,
             output={"stdout": completed.stdout, "stderr": completed.stderr},
-            error=None if completed.returncode == 0 else f"python exited with {completed.returncode}",
+            error=(
+                None if completed.returncode == 0 else f"python exited with {completed.returncode}"
+            ),
             metadata={"returncode": completed.returncode},
         )
 
     def health_check(self) -> HealthCheckResult:
-        return HealthCheckResult(name=self.name, healthy=shutil.which("python") is not None, details={})
+        return HealthCheckResult(
+            name=self.name, healthy=shutil.which("python") is not None, details={}
+        )
