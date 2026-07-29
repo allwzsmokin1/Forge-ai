@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from forge.config import Settings
 from forge.orchestrator import OrchestratorAgent
 
 
-def test_orchestrator_runs_dependency_aware_goal(tmp_path) -> None:
+def test_orchestrator_runs_dependency_aware_goal(tmp_path: Path) -> None:
     orchestrator = OrchestratorAgent(
         memory_path=str(tmp_path / "memory.json"),
         config=Settings(max_parallel_tasks=2, default_task_retries=1),
@@ -29,7 +31,7 @@ def test_orchestrator_runs_dependency_aware_goal(tmp_path) -> None:
     assert report.dependency_map[review_task.task_id]
 
 
-def test_orchestrator_persists_task_history(tmp_path) -> None:
+def test_orchestrator_persists_task_history(tmp_path: Path) -> None:
     memory_path = tmp_path / "memory.json"
     orchestrator = OrchestratorAgent(
         memory_path=str(memory_path),

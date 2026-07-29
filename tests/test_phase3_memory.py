@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from forge.memory import MemoryManager
 
 
-def test_memory_manager_persists_extended_context(tmp_path) -> None:
+def test_memory_manager_persists_extended_context(tmp_path: Path) -> None:
     memory_path = tmp_path / "memory.json"
     manager = MemoryManager(project_name="ForgeAI", memory_path=str(memory_path))
 
