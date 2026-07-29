@@ -53,10 +53,14 @@ class ArchiveTool(BaseTool):
         destination.mkdir(parents=True, exist_ok=True)
         if zipfile.is_zipfile(archive_path):
             with zipfile.ZipFile(archive_path) as archive:
-                archive.extractall(destination)
+                for member in archive.infolist():
+                    self._validate_member_path(member.filename, destination)
+                    archive.extract(member, destination)
         else:
             with tarfile.open(archive_path) as archive:
-                archive.extractall(destination)
+                for member in archive.getmembers():
+                    self._validate_member_path(member.name, destination)
+                    archive.extract(member, destination)
         return str(destination)
 
     def _create_archive(self, archive_path: Path, items: list[Path]) -> str:
@@ -70,3 +74,17 @@ class ArchiveTool(BaseTool):
                 for item in items:
                     archive.add(item, arcname=item.name)
         return str(archive_path)
+
+    def _validate_member_path(self, member_name: str, destination: Path) -> None:
+        member_path = Path(member_name)
+        if member_path.is_absolute():
+            raise ValueError(f"Archive member '{member_name}' uses an absolute path")
+
+        resolved_destination = destination.resolve()
+        resolved_member = (destination / member_path).resolve()
+        try:
+            resolved_member.relative_to(resolved_destination)
+        except ValueError as exc:
+            raise ValueError(
+                f"Archive member '{member_name}' would extract outside '{destination}'"
+            ) from exc
