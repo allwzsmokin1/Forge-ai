@@ -1,0 +1,36 @@
+"""Git workflow agent for summarizing repository actions."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from .base import BaseAgent
+
+
+@dataclass(frozen=True)
+class GitAction:
+    """Represents a suggested git-oriented action."""
+
+    summary: str
+    recommended_branch_action: str
+    ready_to_commit: bool
+
+
+class GitAgent(BaseAgent):
+    """Agent responsible for summarizing git workflow follow-up actions."""
+
+    @property
+    def name(self) -> str:
+        return "GitAgent"
+
+    @property
+    def description(self) -> str:
+        return "Summarize commit readiness and recommended git workflow actions."
+
+    def run(self, prompt: str, **kwargs: object) -> GitAction:
+        request = prompt.strip() or "repository update"
+        return GitAction(
+            summary=f"Prepare repository changes for: {request}",
+            recommended_branch_action="Review the diff and create a focused commit once validation passes.",
+            ready_to_commit=True,
+        )
