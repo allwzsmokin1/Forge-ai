@@ -77,6 +77,8 @@ class MemoryManager:
             self.memory.completed_tasks.append(entry)
         elif status == "failed":
             self.memory.failed_tasks.append(entry)
+        elif status in {"blocked", "queued", "running"}:
+            pass
 
         self._logger.info("Added memory entry for task %s with status %s", task_title, status)
         return entry

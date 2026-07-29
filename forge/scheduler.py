@@ -90,9 +90,6 @@ class Scheduler:
                     ):
                         break
 
-                if not in_flight:
-                    continue
-
                 completed, _ = wait(set(in_flight), return_when=FIRST_COMPLETED)
                 for future in completed:
                     task_id = in_flight.pop(future)
