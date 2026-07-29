@@ -20,7 +20,7 @@ class StaticProvider(LLMProvider):
         return "Static test provider."
 
     def generate(self, prompt: str, **kwargs: object) -> LLMResponse:
-        return LLMResponse(text=self._text, metadata={"prompt": prompt, **kwargs})
+        return LLMResponse(text=self._text, metadata={"prompt": prompt, "options": kwargs})
 
 
 def test_mock_provider_generates_code_response() -> None:

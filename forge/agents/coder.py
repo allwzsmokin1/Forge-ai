@@ -8,6 +8,9 @@ from typing import Any
 from ..llm import registry
 from .base import BaseAgent
 
+CODE_PREFIX = "CODE:\n"
+EXPLANATION_DELIMITER = "\nEXPLANATION:\n"
+
 
 @dataclass(frozen=True)
 class CodeArtifact:
@@ -60,6 +63,6 @@ class CoderAgent(BaseAgent):
 
     def _run_provider(self, request: str) -> CodeArtifact:
         response = registry.get().generate(request, task_type="coder")
-        code, _, explanation = response.text.partition("\nEXPLANATION:\n")
-        normalized_code = code.removeprefix("CODE:\n").strip()
+        code, _, explanation = response.text.partition(EXPLANATION_DELIMITER)
+        normalized_code = code.removeprefix(CODE_PREFIX).strip()
         return CodeArtifact(code=normalized_code, explanation=explanation.strip())

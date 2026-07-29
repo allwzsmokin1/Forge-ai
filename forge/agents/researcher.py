@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from ..llm import registry
 from .base import BaseAgent
 
+FINDINGS_PREFIX = "FINDINGS:\n"
+RECOMMENDATIONS_DELIMITER = "\nRECOMMENDATIONS:\n"
+
 
 @dataclass(frozen=True)
 class ResearchSummary:
@@ -35,8 +38,8 @@ class ResearchAgent(BaseAgent):
         """Summarize the research topic and recommend best practices."""
         topic = prompt.strip() or "general software engineering"
         response = registry.get().generate(topic, task_type="research")
-        findings, _, recommendations = response.text.partition("\nRECOMMENDATIONS:\n")
-        normalized_findings = findings.removeprefix("FINDINGS:\n").strip()
+        findings, _, recommendations = response.text.partition(RECOMMENDATIONS_DELIMITER)
+        normalized_findings = findings.removeprefix(FINDINGS_PREFIX).strip()
         return ResearchSummary(
             topic=topic,
             findings=normalized_findings,
