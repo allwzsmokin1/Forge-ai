@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..llm import registry
 from .base import BaseAgent
+
+FINDINGS_PREFIX = "FINDINGS:\n"
+RECOMMENDATIONS_DELIMITER = "\nRECOMMENDATIONS:\n"
 
 
 @dataclass(frozen=True)
@@ -33,23 +37,11 @@ class ResearchAgent(BaseAgent):
     def run(self, prompt: str, **kwargs: object) -> ResearchSummary:
         """Summarize the research topic and recommend best practices."""
         topic = prompt.strip() or "general software engineering"
-        findings = (
-            "This research summary synthesizes relevant documentation and best "
-            "practices for the requested topic."
+        response = registry.get().generate(topic, task_type="research")
+        findings, _, recommendations = response.text.partition(RECOMMENDATIONS_DELIMITER)
+        normalized_findings = findings.removeprefix(FINDINGS_PREFIX).strip()
+        return ResearchSummary(
+            topic=topic,
+            findings=normalized_findings,
+            recommendations=recommendations.strip(),
         )
-        recommendations = (
-            "Focus on typed interfaces, modular architecture, clear documentation, "
-            "and incremental validation with tests."
-        )
-
-        if "async" in topic.lower():
-            findings = (
-                "Async code should use explicit task management and avoid blocking "
-                "calls in event loops."
-            )
-            recommendations = (
-                "Prefer asyncio-compatible libraries, document coroutine behavior, "
-                "and use structured concurrency when possible."
-            )
-
-        return ResearchSummary(topic=topic, findings=findings, recommendations=recommendations)

@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from ..llm import registry
 from .base import BaseAgent
+
+CODE_PREFIX = "CODE:\n"
+EXPLANATION_DELIMITER = "\nEXPLANATION:\n"
 
 
 @dataclass(frozen=True)
@@ -49,36 +53,16 @@ class CoderAgent(BaseAgent):
         return self._generate_code(request)
 
     def _generate_code(self, request: str) -> CodeArtifact:
-        code = (
-            "def hello_world() -> str:\n"
-            "    \"\"\"Return a friendly greeting.\"\"\"\n"
-            "    return 'Hello, world!'\n"
-        )
-        return CodeArtifact(
-            code=code,
-            explanation=(
-                "Generated a simple Python function that returns a greeting. "
-                "Use this as a starting point for more specific implementations."
-            ),
-        )
+        return self._run_provider(request)
 
     def _refactor_code(self, request: str) -> CodeArtifact:
-        code = (
-            "def compute_total(prices: list[float]) -> float:\n"
-            "    \"\"\"Return the sum of a list of prices.\"\"\"\n"
-            "    return sum(prices)\n"
-        )
-        return CodeArtifact(
-            code=code,
-            explanation=(
-                "Refactored the implementation to use Python's built-in sum function "
-                "for readability and performance."
-            ),
-        )
+        return self._run_provider(request)
 
     def _explain_code(self, request: str) -> CodeArtifact:
-        explanation = (
-            "This code example shows a well-typed Python function with a docstring, "
-            "clear return type, and a simple implementation that is easy to read."
-        )
-        return CodeArtifact(code=request, explanation=explanation)
+        return self._run_provider(request)
+
+    def _run_provider(self, request: str) -> CodeArtifact:
+        response = registry.get().generate(request, task_type="coder")
+        code, _, explanation = response.text.partition(EXPLANATION_DELIMITER)
+        normalized_code = code.removeprefix(CODE_PREFIX).strip()
+        return CodeArtifact(code=normalized_code, explanation=explanation.strip())

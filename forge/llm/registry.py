@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, Optional
+from collections.abc import Iterable
 
 from .providers import LLMProvider, MockLLMProvider
 
@@ -11,7 +11,7 @@ class ProviderRegistry:
     """Registry that manages available LLM providers."""
 
     def __init__(self) -> None:
-        self._providers: Dict[str, LLMProvider] = {}
+        self._providers: dict[str, LLMProvider] = {}
         self._default_provider = MockLLMProvider()
         self.register(self._default_provider)
 
@@ -20,7 +20,7 @@ class ProviderRegistry:
         if provider.name == self._default_provider.name:
             self._default_provider = provider
 
-    def get(self, name: Optional[str] = None) -> LLMProvider:
+    def get(self, name: str | None = None) -> LLMProvider:
         if name is None:
             return self._default_provider
         return self._providers.get(name, self._default_provider)
@@ -29,8 +29,8 @@ class ProviderRegistry:
         return tuple(self._providers.keys())
 
     def set_default(self, name: str) -> None:
-        provider = self.get(name)
-        if provider is self._default_provider:
+        provider = self._providers.get(name)
+        if provider is None:
             raise KeyError(f"Unknown provider: {name}")
         self._default_provider = provider
 
