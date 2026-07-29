@@ -1,6 +1,6 @@
 """Parallel scheduler for the orchestration framework.
 
-Executes independent tasks concurrently using a thread pool while honouring
+Executes independent tasks concurrently using a thread pool while honoring
 dependency constraints imposed by the TaskDAG.  Tasks that are BLOCKED wait
 until their predecessors complete, then automatically become eligible for
 scheduling.

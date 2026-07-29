@@ -64,7 +64,7 @@ class DocumentationAgent(BaseAgent):
         if "class " in lowered:
             return "This class provides structured functionality for the described purpose."
         if "def " in lowered or "async def" in lowered:
-            return "This function implements the described behaviour with typed inputs and outputs."
+            return "This function implements the described behavior with typed inputs and outputs."
         if "module" in lowered or "package" in lowered:
             return "This module exposes utilities and abstractions for its described domain."
         return f"Documentation for: {subject[:60]}"

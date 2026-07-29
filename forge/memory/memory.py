@@ -130,6 +130,6 @@ class MemoryManager:
             self._logger.info("Loaded memory from storage")
         except FileNotFoundError:
             self._logger.warning("Memory file not found; starting with empty memory")
-        except Exception as exc:
-            self._logger.exception("Failed to load memory: %s", exc)
+        except Exception:
+            self._logger.exception("Failed to load memory")
             raise

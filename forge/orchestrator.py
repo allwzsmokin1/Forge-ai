@@ -148,7 +148,7 @@ class Orchestrator:
             self._memory_manager.save()
             return task_result
         except Exception as exc:  # pragma: no cover - defensive branch
-            self._logger.exception("Task %s failed with %s", task.title, exc)
+            self._logger.exception("Task %s failed", task.title)
             task_result = TaskResult(task=task, agent_name=agent.name, status="failed", error=str(exc))
             self._memory_manager.add_entry(
                 task_title=task.title,
