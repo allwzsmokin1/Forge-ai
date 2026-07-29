@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from hashlib import sha1
-from typing import Any, List
+from typing import Any
 
 from .base import BaseAgent
 
@@ -38,7 +38,7 @@ class PlannerAgent(BaseAgent):
             "and return a structured task list."
         )
 
-    def run(self, prompt: str, **kwargs: object) -> List[Task]:
+    def run(self, prompt: str, **kwargs: object) -> list[Task]:
         """Convert a user goal into a task plan.
 
         The planner uses simple heuristics to split goals into ordered tasks and
@@ -50,13 +50,15 @@ class PlannerAgent(BaseAgent):
 
         chain_tasks = " then " in goal.lower()
         separators = [";", " and ", " then "]
-        raw_tasks: List[str] = [goal]
+        raw_tasks: list[str] = [goal]
         for separator in separators:
             if separator in goal.lower():
-                raw_tasks = [segment.strip() for segment in goal.split(separator) if segment.strip()]
+                raw_tasks = [
+                    segment.strip() for segment in goal.split(separator) if segment.strip()
+                ]
                 break
 
-        tasks: List[Task] = []
+        tasks: list[Task] = []
         previous_task_id: str | None = None
         implementation_task_id: str | None = None
         for index, description in enumerate(raw_tasks, start=1):
@@ -75,7 +77,10 @@ class PlannerAgent(BaseAgent):
 
             if chain_tasks and previous_task_id is not None:
                 dependencies = (previous_task_id,)
-            elif task_type in {"review", "test", "documentation", "git", "debug"} and implementation_task_id:
+            elif (
+                task_type in {"review", "test", "documentation", "git", "debug"}
+                and implementation_task_id
+            ):
                 dependencies = (implementation_task_id,)
 
             if task_type in {"code", "debug"}:
@@ -111,10 +116,12 @@ class PlannerAgent(BaseAgent):
             return "git"
         if any(keyword in description for keyword in ("research", "investigate", "analyze")):
             return "research"
-        if any(keyword in description for keyword in ("code", "implement", "build", "write", "create")):
+        if any(
+            keyword in description for keyword in ("code", "implement", "build", "write", "create")
+        ):
             return "code"
         return "general"
 
     def _build_task_id(self, title: str, order: int) -> str:
-        digest = sha1(f"{order}:{title}".encode("utf-8")).hexdigest()[:12]
+        digest = sha1(f"{order}:{title}".encode()).hexdigest()[:12]
         return f"task-{order:02d}-{digest}"

@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
-from .models import AgentDecision, ConversationMemory, FileMetadata, MemoryEntry, ProjectMemory, TaskRecord
-from .storage import StorageBackend, JSONStorage
+from .models import (
+    AgentDecision,
+    ConversationMemory,
+    FileMetadata,
+    MemoryEntry,
+    ProjectMemory,
+    TaskRecord,
+)
+from .storage import JSONStorage, StorageBackend
 
 logger = logging.getLogger("forge.memory")
 
@@ -18,8 +25,8 @@ class MemoryManager:
     def __init__(
         self,
         project_name: str,
-        storage: Optional[StorageBackend] = None,
-        memory_path: Optional[str] = None,
+        storage: StorageBackend | None = None,
+        memory_path: str | None = None,
     ) -> None:
         self.project_name = project_name
         self.storage = storage or JSONStorage(memory_path or "./.forge/memory.json")
@@ -31,7 +38,7 @@ class MemoryManager:
         self._logger = logger
 
     def _now_iso(self) -> str:
-        return datetime.now(tz=timezone.utc).isoformat()
+        return datetime.now(tz=UTC).isoformat()
 
     def add_entry(
         self,
@@ -40,8 +47,8 @@ class MemoryManager:
         agent_name: str,
         status: str,
         result: Any = None,
-        error: Optional[str] = None,
-        categories: Optional[List[str]] = None,
+        error: str | None = None,
+        categories: list[str] | None = None,
     ) -> MemoryEntry:
         categories = categories or []
         entry = MemoryEntry(
@@ -61,9 +68,7 @@ class MemoryManager:
         else:
             self.memory.failed_tasks.append(entry)
 
-        self._logger.info(
-            "Added memory entry for task %s with status %s", task_title, status
-        )
+        self._logger.info("Added memory entry for task %s with status %s", task_title, status)
         return entry
 
     def add_project_goal(self, goal: str) -> None:
@@ -90,7 +95,7 @@ class MemoryManager:
         self.memory.goal_summary = summary
         self._logger.info("Set goal summary in memory")
 
-    def record_task_dependencies(self, task_id: str, dependencies: List[str]) -> None:
+    def record_task_dependencies(self, task_id: str, dependencies: list[str]) -> None:
         self.memory.task_dependencies[task_id] = list(dependencies)
         self._logger.info("Recorded dependencies for task %s", task_id)
 
@@ -102,9 +107,9 @@ class MemoryManager:
         agent_name: str,
         status: str,
         attempt: int,
-        dependencies: Optional[List[str]] = None,
-        result_summary: Optional[str] = None,
-        error: Optional[str] = None,
+        dependencies: list[str] | None = None,
+        result_summary: str | None = None,
+        error: str | None = None,
     ) -> TaskRecord:
         record = TaskRecord(
             task_id=task_id,
@@ -126,8 +131,8 @@ class MemoryManager:
         self,
         path: str,
         summary: str,
-        tags: Optional[List[str]] = None,
-        last_updated: Optional[str] = None,
+        tags: list[str] | None = None,
+        last_updated: str | None = None,
     ) -> FileMetadata:
         metadata = FileMetadata(
             path=path,
@@ -157,7 +162,7 @@ class MemoryManager:
         self._logger.info("Recorded agent decision for task %s", task_id)
         return decision_record
 
-    def get_context(self, query: str, limit: int = 5) -> Dict[str, List[Any]]:
+    def get_context(self, query: str, limit: int = 5) -> dict[str, list[Any]]:
         lowered = query.lower()
 
         task_matches = [
@@ -198,7 +203,7 @@ class MemoryManager:
             "summaries": summary_matches,
         }
 
-    def search(self, query: str) -> List[MemoryEntry]:
+    def search(self, query: str) -> list[MemoryEntry]:
         lowered = query.lower()
         results = [
             entry
@@ -211,7 +216,7 @@ class MemoryManager:
         self._logger.info("Search query '%s' returned %d entries", query, len(results))
         return results
 
-    def get_recent(self, count: int = 5) -> List[MemoryEntry]:
+    def get_recent(self, count: int = 5) -> list[MemoryEntry]:
         recent = self.memory.conversation.entries[-count:]
         self._logger.info("Retrieved %d recent memory entries", len(recent))
         return recent
@@ -245,6 +250,6 @@ class MemoryManager:
             self._logger.info("Loaded memory from storage")
         except FileNotFoundError:
             self._logger.warning("Memory file not found; starting with empty memory")
-        except Exception as exc:
-            self._logger.exception("Failed to load memory: %s", exc)
+        except Exception:
+            self._logger.exception("Failed to load memory")
             raise

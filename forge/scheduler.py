@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterable, List, Sequence
 
 from .agents import Task
 
@@ -28,9 +28,9 @@ class RetryPolicy:
 class SchedulerResult:
     """Represents the scheduler outcome for a task graph."""
 
-    results: Dict[str, object]
-    states: Dict[str, str]
-    attempts: Dict[str, int]
+    results: dict[str, object]
+    states: dict[str, str]
+    attempts: dict[str, int]
 
 
 class TaskGraph:
@@ -44,10 +44,10 @@ class TaskGraph:
         self._validate_acyclic()
 
     @property
-    def tasks(self) -> Dict[str, Task]:
+    def tasks(self) -> dict[str, Task]:
         return dict(self._tasks)
 
-    def ready_tasks(self, completed: Iterable[str], pending: Iterable[str]) -> List[Task]:
+    def ready_tasks(self, completed: Iterable[str], pending: Iterable[str]) -> list[Task]:
         completed_set = set(completed)
         pending_set = set(pending)
         ready = [
@@ -57,7 +57,7 @@ class TaskGraph:
         ]
         return sorted(ready, key=lambda item: (item.priority, item.order))
 
-    def blocked_tasks(self, completed: Iterable[str], pending: Iterable[str]) -> List[Task]:
+    def blocked_tasks(self, completed: Iterable[str], pending: Iterable[str]) -> list[Task]:
         completed_set = set(completed)
         pending_set = set(pending)
         blocked = [
@@ -67,7 +67,7 @@ class TaskGraph:
         ]
         return sorted(blocked, key=lambda item: (item.priority, item.order))
 
-    def to_dependency_map(self) -> Dict[str, List[str]]:
+    def to_dependency_map(self) -> dict[str, list[str]]:
         return {task_id: list(task.dependencies) for task_id, task in self._tasks.items()}
 
     def _validate_dependencies(self) -> None:
@@ -117,8 +117,8 @@ class TaskScheduler:
             for task_id, task in tasks.items()
         }
         attempts = {task_id: 0 for task_id in tasks}
-        results: Dict[str, object] = {}
-        running: Dict[Future[object], str] = {}
+        results: dict[str, object] = {}
+        running: dict[Future[object], str] = {}
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
             while pending or running:
@@ -131,7 +131,9 @@ class TaskScheduler:
                         states[task.task_id] = TASK_STATUS_BLOCKED
 
                 ready_tasks = [
-                    task for task in graph.ready_tasks(completed=completed, pending=pending) if task.task_id not in running.values()
+                    task
+                    for task in graph.ready_tasks(completed=completed, pending=pending)
+                    if task.task_id not in running.values()
                 ]
                 while ready_tasks and len(running) < self.max_workers:
                     task = ready_tasks.pop(0)
@@ -147,11 +149,7 @@ class TaskScheduler:
                 for future in completed_futures:
                     task_id = running.pop(future)
                     task = tasks[task_id]
-                    try:
-                        result = future.result()
-                    except Exception as exc:  # pragma: no cover - defensive branch
-                        result = exc
-
+                    result = future.result()
                     results[task_id] = result
                     status = getattr(result, "status", TASK_STATUS_COMPLETED)
                     if status == TASK_STATUS_COMPLETED:

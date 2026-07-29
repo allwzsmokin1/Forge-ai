@@ -7,7 +7,13 @@ import time
 
 from forge.agents.planner import Task
 from forge.orchestrator import TaskResult
-from forge.scheduler import TASK_STATUS_COMPLETED, TASK_STATUS_FAILED, RetryPolicy, TaskGraph, TaskScheduler
+from forge.scheduler import (
+    TASK_STATUS_COMPLETED,
+    TASK_STATUS_FAILED,
+    RetryPolicy,
+    TaskGraph,
+    TaskScheduler,
+)
 
 
 def build_task(
@@ -55,7 +61,9 @@ def test_scheduler_runs_independent_tasks_in_parallel() -> None:
         time.sleep(0.05)
         with lock:
             running -= 1
-        return TaskResult(task=task, agent_name="TestAgent", status=TASK_STATUS_COMPLETED, attempts=attempt)
+        return TaskResult(
+            task=task, agent_name="TestAgent", status=TASK_STATUS_COMPLETED, attempts=attempt
+        )
 
     result = scheduler.execute(graph=graph, executor=execute, retry_policy=RetryPolicy())
 
@@ -79,9 +87,13 @@ def test_scheduler_retries_failed_tasks() -> None:
                 error="transient",
                 attempts=attempt,
             )
-        return TaskResult(task=task, agent_name="DebugAgent", status=TASK_STATUS_COMPLETED, attempts=attempt)
+        return TaskResult(
+            task=task, agent_name="DebugAgent", status=TASK_STATUS_COMPLETED, attempts=attempt
+        )
 
-    result = scheduler.execute(graph=graph, executor=execute, retry_policy=RetryPolicy(max_retries=0))
+    result = scheduler.execute(
+        graph=graph, executor=execute, retry_policy=RetryPolicy(max_retries=0)
+    )
 
     assert attempts["count"] == 2
     assert result.attempts["task-a"] == 2

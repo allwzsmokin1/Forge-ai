@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field, is_dataclass
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any
 
 from .agents import (
     BaseAgent,
@@ -39,7 +40,7 @@ class TaskResult:
     agent_name: str
     status: str
     result: Any = None
-    error: Optional[str] = None
+    error: str | None = None
     attempts: int = 1
 
 
@@ -48,10 +49,10 @@ class ExecutionReport:
     """Summary of an orchestration run."""
 
     goal: str
-    task_results: List[TaskResult] = field(default_factory=list)
+    task_results: list[TaskResult] = field(default_factory=list)
     success: bool = True
-    task_states: Dict[str, str] = field(default_factory=dict)
-    dependency_map: Dict[str, List[str]] = field(default_factory=dict)
+    task_states: dict[str, str] = field(default_factory=dict)
+    dependency_map: dict[str, list[str]] = field(default_factory=dict)
 
 
 class OrchestratorAgent(BaseAgent):
@@ -59,16 +60,16 @@ class OrchestratorAgent(BaseAgent):
 
     def __init__(
         self,
-        logger_instance: Optional[logging.Logger] = None,
-        memory_manager: Optional[MemoryManager] = None,
+        logger_instance: logging.Logger | None = None,
+        memory_manager: MemoryManager | None = None,
         project_name: str = "ForgeAI",
-        memory_path: Optional[str] = None,
-        config: Optional[Settings] = None,
-        scheduler: Optional[TaskScheduler] = None,
+        memory_path: str | None = None,
+        config: Settings | None = None,
+        scheduler: TaskScheduler | None = None,
     ) -> None:
         self._settings = config or settings
         self._logger = logger_instance or logger
-        self._agents: List[Tuple[Tuple[str, ...], Tuple[str, ...], BaseAgent]] = []
+        self._agents: list[tuple[tuple[str, ...], tuple[str, ...], BaseAgent]] = []
         self._memory_manager = (
             memory_manager
             if memory_manager is not None
@@ -319,7 +320,7 @@ class OrchestratorAgent(BaseAgent):
         tasks: Sequence[Task],
         scheduled: SchedulerResult,
     ) -> ExecutionReport:
-        task_results: List[TaskResult] = []
+        task_results: list[TaskResult] = []
         for task in sorted(tasks, key=lambda item: item.order):
             result = scheduled.results.get(task.task_id)
             if isinstance(result, TaskResult):
@@ -355,24 +356,26 @@ class OrchestratorAgent(BaseAgent):
             dependency_map={task.task_id: list(task.dependencies) for task in tasks},
         )
 
-    def _select_agent(self, task: Task) -> Optional[BaseAgent]:
+    def _select_agent(self, task: Task) -> BaseAgent | None:
         task_type = task.task_type.lower()
         for _, task_types, agent in self._agents:
             if task_type in task_types:
                 return agent
 
         description = f"{task.title} {task.description}".strip().lower()
-        best_match: Optional[Tuple[int, int, BaseAgent]] = None
+        best_match: tuple[int, int, BaseAgent] | None = None
         for index, (keywords, _, agent) in enumerate(self._agents):
             if any(keyword in description for keyword in keywords):
                 score = max(len(keyword) for keyword in keywords if keyword in description)
-                if best_match is None or score > best_match[0] or (
-                    score == best_match[0] and index > best_match[1]
+                if (
+                    best_match is None
+                    or score > best_match[0]
+                    or (score == best_match[0] and index > best_match[1])
                 ):
                     best_match = (score, index, agent)
         return None if best_match is None else best_match[2]
 
-    def _resolve_agent_for_task(self, task_type: str) -> Optional[BaseAgent]:
+    def _resolve_agent_for_task(self, task_type: str) -> BaseAgent | None:
         lowered = task_type.lower()
         for _, task_types, agent in self._agents:
             if lowered in task_types:

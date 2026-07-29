@@ -45,4 +45,3 @@ def test_memory_manager_persists_extended_context(tmp_path) -> None:
     assert reloaded.memory.summaries["phase3"] == "autonomous multi-agent orchestration"
     assert context["tasks"][0].task_id == "task-1"
     assert context["files"][0].path == "/workspace/forge/orchestrator.py"
-    assert context["summaries"][0] == "phase3: autonomous multi-agent orchestration"

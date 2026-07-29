@@ -12,7 +12,9 @@ def test_orchestrator_runs_dependency_aware_goal(tmp_path) -> None:
         config=Settings(max_parallel_tasks=2, default_task_retries=1),
     )
 
-    report = orchestrator.run("implement scheduler and review scheduler and test scheduler and document scheduler")
+    report = orchestrator.run(
+        "implement scheduler and review scheduler and test scheduler and document scheduler"
+    )
 
     assert report.success is True
     assert len(report.task_results) == 4
@@ -21,7 +23,9 @@ def test_orchestrator_runs_dependency_aware_goal(tmp_path) -> None:
     assert statuses["review"] == "completed"
     assert statuses["test"] == "completed"
     assert statuses["documentation"] == "completed"
-    review_task = next(result.task for result in report.task_results if result.task.task_type == "review")
+    review_task = next(
+        result.task for result in report.task_results if result.task.task_type == "review"
+    )
     assert report.dependency_map[review_task.task_id]
 
 
