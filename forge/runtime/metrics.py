@@ -33,7 +33,9 @@ class MetricsCollector:
         self._metrics: dict[str, ToolMetrics] = {}
 
     def record(self, result: ToolExecutionResult, retries: int = 0) -> None:
-        metrics = self._metrics.setdefault(result.tool_name, ToolMetrics(tool_name=result.tool_name))
+        metrics = self._metrics.setdefault(
+            result.tool_name, ToolMetrics(tool_name=result.tool_name)
+        )
         metrics.executions += 1
         metrics.retries += retries
         metrics.total_duration_ms += result.duration_ms

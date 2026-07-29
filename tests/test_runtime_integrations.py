@@ -38,34 +38,37 @@ def test_json_storage_round_trips_through_runtime(tmp_path: Path) -> None:
     assert loaded.name == "ForgeAI"
     assert loaded.goal_summary == "summary"
     assert loaded.conversation.goal == "goal"
-    assert json.loads((tmp_path / ".forge" / "memory.json").read_text(encoding="utf-8"))["name"] == "ForgeAI"
+    assert (
+        json.loads((tmp_path / ".forge" / "memory.json").read_text(encoding="utf-8"))["name"]
+        == "ForgeAI"
+    )
 
 
 def test_plugin_manager_discovers_runtime_tool_plugins(tmp_path: Path) -> None:
     plugin_dir = tmp_path / "plugins"
     plugin_dir.mkdir()
+    plugin_source = """from forge.runtime import ToolExecutionRequest, ToolExecutionResult
+from forge.tools import BaseTool
+
+
+class SampleTool(BaseTool):
+    @property
+    def name(self):
+        return "sample"
+
+    @property
+    def description(self):
+        return "sample tool"
+
+    def execute(self, request: ToolExecutionRequest, context):
+        return ToolExecutionResult(tool_name=self.name, success=True, output="ok")
+
+
+def register_tools(registry):
+    registry.register(SampleTool())
+"""
     (plugin_dir / "sample_plugin.py").write_text(
-        "\n".join(
-            [
-                "from forge.runtime import ToolExecutionRequest, ToolExecutionResult",
-                "from forge.tools import BaseTool",
-                "",
-                "class SampleTool(BaseTool):",
-                "    @property",
-                "    def name(self):",
-                "        return 'sample'",
-                "",
-                "    @property",
-                "    def description(self):",
-                "        return 'sample tool'",
-                "",
-                "    def execute(self, request: ToolExecutionRequest, context):",
-                "        return ToolExecutionResult(tool_name=self.name, success=True, output='ok')",
-                "",
-                "def register_tools(registry):",
-                "    registry.register(SampleTool())",
-            ]
-        ),
+        plugin_source,
         encoding="utf-8",
     )
     runtime = RuntimeManager(register_builtins=True)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -12,11 +12,11 @@ class ToolExecutionRequest:
 
     tool_name: str
     operation: str = "run"
-    payload: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    timeout: Optional[float] = None
-    retries: Optional[int] = None
-    correlation_id: Optional[str] = None
+    payload: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    timeout: float | None = None
+    retries: int | None = None
+    correlation_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -26,8 +26,8 @@ class ToolExecutionResult:
     tool_name: str
     success: bool
     output: Any = None
-    error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
     duration_ms: float = 0.0
     attempts: int = 1
 
@@ -38,7 +38,7 @@ class ToolHealthStatus:
 
     tool_name: str
     healthy: bool
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -48,4 +48,4 @@ class RuntimeContext:
     container: Any
     event_bus: Any
     logger: Any
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)

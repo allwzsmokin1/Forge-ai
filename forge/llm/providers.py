@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -12,7 +12,7 @@ class LLMResponse:
     """Represents a normalized response from an LLM provider."""
 
     text: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class LLMProvider(abc.ABC):
@@ -55,7 +55,7 @@ class MockLLMProvider(LLMProvider):
             if "refactor" in normalized:
                 code = (
                     "def compute_total(prices: list[float]) -> float:\n"
-                    "    \"\"\"Return the sum of a list of prices.\"\"\"\n"
+                    '    """Return the sum of a list of prices."""\n'
                     "    return sum(prices)\n"
                 )
                 explanation = (
@@ -71,7 +71,7 @@ class MockLLMProvider(LLMProvider):
             else:
                 code = (
                     "def hello_world() -> str:\n"
-                    "    \"\"\"Return a friendly greeting.\"\"\"\n"
+                    '    """Return a friendly greeting."""\n'
                     "    return 'Hello, world!'\n"
                 )
                 explanation = (

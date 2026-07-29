@@ -7,10 +7,10 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
-from .models import ConversationMemory, MemoryEntry, ProjectMemory
 from ..runtime import RuntimeManager, get_runtime
+from .models import ConversationMemory, MemoryEntry, ProjectMemory
 
 
 class StorageBackend(ABC):
@@ -66,10 +66,7 @@ class JSONStorage(StorageBackend):
 
     def _serialize_value(self, value: Any) -> Any:
         if dataclasses.is_dataclass(value):
-            return {
-                key: self._serialize_value(val)
-                for key, val in asdict(value).items()
-            }
+            return {key: self._serialize_value(val) for key, val in asdict(value).items()}
         if isinstance(value, dict):
             return {key: self._serialize_value(val) for key, val in value.items()}
         if isinstance(value, (list, tuple)):

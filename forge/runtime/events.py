@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -15,10 +15,8 @@ class RuntimeEvent:
 
     name: str
     payload: Any = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(tz=timezone.utc).isoformat()
-    )
+    metadata: dict[str, Any] = field(default_factory=dict)
+    timestamp: str = field(default_factory=lambda: datetime.now(tz=UTC).isoformat())
 
 
 class RuntimeEventBus:
@@ -34,7 +32,7 @@ class RuntimeEventBus:
         self,
         event: str,
         data: Any = None,
-        metadata: Dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> RuntimeEvent:
         runtime_event = RuntimeEvent(name=event, payload=data, metadata=metadata or {})
         for callback in list(self._listeners[event]):

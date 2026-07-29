@@ -5,10 +5,10 @@ from .models import ConversationMemory, MemoryEntry, ProjectMemory
 from .storage import JSONStorage, StorageBackend
 
 __all__ = [
-    "MemoryManager",
-    "MemoryEntry",
     "ConversationMemory",
-    "ProjectMemory",
     "JSONStorage",
+    "MemoryEntry",
+    "MemoryManager",
+    "ProjectMemory",
     "StorageBackend",
 ]

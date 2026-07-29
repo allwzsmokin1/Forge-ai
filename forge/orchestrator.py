@@ -9,8 +9,9 @@ agent registry.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any
 
 from .agents import BaseAgent, CoderAgent, PlannerAgent, ResearchAgent, ReviewerAgent, Task
 from .logger import logger
@@ -26,7 +27,7 @@ class TaskResult:
     agent_name: str
     status: str
     result: Any = None
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,7 @@ class ExecutionReport:
     """Summary of an orchestration run."""
 
     goal: str
-    task_results: List[TaskResult] = field(default_factory=list)
+    task_results: list[TaskResult] = field(default_factory=list)
     success: bool = True
 
 
@@ -49,14 +50,14 @@ class Orchestrator:
 
     def __init__(
         self,
-        logger_instance: Optional[logging.Logger] = None,
-        memory_manager: Optional[MemoryManager] = None,
-        runtime_manager: Optional[RuntimeManager] = None,
+        logger_instance: logging.Logger | None = None,
+        memory_manager: MemoryManager | None = None,
+        runtime_manager: RuntimeManager | None = None,
         project_name: str = "ForgeAI",
-        memory_path: Optional[str] = None,
+        memory_path: str | None = None,
     ) -> None:
         self._logger = logger_instance or logger
-        self._agents: List[Tuple[Tuple[str, ...], BaseAgent]] = []
+        self._agents: list[tuple[tuple[str, ...], BaseAgent]] = []
         self._runtime_manager = runtime_manager or get_runtime()
         self._memory_manager = (
             memory_manager
@@ -119,7 +120,7 @@ class Orchestrator:
         self._memory_manager.set_goal_summary(goal)
         self._memory_manager.memory.conversation.goal = goal
 
-        task_results: List[TaskResult] = []
+        task_results: list[TaskResult] = []
         try:
             for task in tasks:
                 task_result = self.execute_task(task)
@@ -145,13 +146,17 @@ class Orchestrator:
         agent = self._select_agent(description)
         if agent is None:
             self._logger.warning("No agent registered for task %s", task.title)
-            return TaskResult(task=task, agent_name="None", status="failed", error="No agent registered")
+            return TaskResult(
+                task=task, agent_name="None", status="failed", error="No agent registered"
+            )
 
         self._logger.info("Executing task %s with %s", task.title, agent.name)
         prompt = task.description if task.description else task.title
         try:
             result = agent.run(prompt, task=task)
-            task_result = TaskResult(task=task, agent_name=agent.name, status="completed", result=result)
+            task_result = TaskResult(
+                task=task, agent_name=agent.name, status="completed", result=result
+            )
             self._memory_manager.add_entry(
                 task_title=task.title,
                 task_description=task.description,
@@ -164,8 +169,10 @@ class Orchestrator:
             self._memory_manager.save()
             return task_result
         except Exception as exc:  # pragma: no cover - defensive branch
-            self._logger.exception("Task %s failed with %s", task.title, exc)
-            task_result = TaskResult(task=task, agent_name=agent.name, status="failed", error=str(exc))
+            self._logger.exception("Task %s failed", task.title)
+            task_result = TaskResult(
+                task=task, agent_name=agent.name, status="failed", error=str(exc)
+            )
             self._memory_manager.add_entry(
                 task_title=task.title,
                 task_description=task.description,
@@ -178,7 +185,7 @@ class Orchestrator:
             self._memory_manager.save()
             return task_result
 
-    def _select_agent(self, description: str) -> Optional[BaseAgent]:
+    def _select_agent(self, description: str) -> BaseAgent | None:
         """Choose the best-fitting agent for a task description.
 
         Matching is based on the longest keyword match. When multiple agents have
@@ -186,17 +193,19 @@ class Orchestrator:
         built-in defaults when they are explicitly registered.
         """
         lowered = description.lower()
-        best_match: Optional[Tuple[int, int, BaseAgent]] = None
+        best_match: tuple[int, int, BaseAgent] | None = None
         for index, (keywords, agent) in enumerate(self._agents):
             if any(keyword in lowered for keyword in keywords):
                 score = max(len(keyword) for keyword in keywords if keyword in lowered)
-                if best_match is None or score > best_match[0] or (
-                    score == best_match[0] and index > best_match[1]
+                if (
+                    best_match is None
+                    or score > best_match[0]
+                    or (score == best_match[0] and index > best_match[1])
                 ):
                     best_match = (score, index, agent)
         return None if best_match is None else best_match[2]
 
-    def _resolve_agent_for_task(self, task_type: str) -> Optional[BaseAgent]:
+    def _resolve_agent_for_task(self, task_type: str) -> BaseAgent | None:
         """Resolve a specific built-in agent by task type."""
         lowered = task_type.lower()
         for keywords, agent in self._agents:

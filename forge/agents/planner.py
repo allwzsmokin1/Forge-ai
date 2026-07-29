@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
 
 from .base import BaseAgent
 
@@ -32,7 +31,7 @@ class PlannerAgent(BaseAgent):
             "and return a structured task list."
         )
 
-    def run(self, prompt: str, **kwargs: object) -> List[Task]:
+    def run(self, prompt: str, **kwargs: object) -> list[Task]:
         """Convert a user goal into a task plan.
 
         The planner uses simple heuristics to split goals into ordered tasks and
@@ -43,13 +42,15 @@ class PlannerAgent(BaseAgent):
             return []
 
         separators = [";", " and ", " then "]
-        raw_tasks: List[str] = [goal]
+        raw_tasks: list[str] = [goal]
         for separator in separators:
             if separator in goal:
-                raw_tasks = [segment.strip() for segment in goal.split(separator) if segment.strip()]
+                raw_tasks = [
+                    segment.strip() for segment in goal.split(separator) if segment.strip()
+                ]
                 break
 
-        tasks: List[Task] = []
+        tasks: list[Task] = []
         for index, description in enumerate(raw_tasks, start=1):
             lowered = description.lower()
             if "urgent" in lowered or "critical" in lowered:

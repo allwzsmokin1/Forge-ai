@@ -43,7 +43,7 @@ def initialize_project(
     runtime.execute(
         "filesystem",
         operation="write_text",
-        payload={"path": str(root / "README.md"), "content": f"# {name}\n"},
+        payload={"path": str(root / "README.md"), "content": f"# {root.name}\n"},
     )
     return root
 
@@ -63,7 +63,7 @@ def doctor():
 @app.command()
 def init(name: str):
     """Create a new ForgeAI project."""
-    root = initialize_project(name)
+    initialize_project(name)
     print(f"[green]Created project {name}[/green]")
 
 
