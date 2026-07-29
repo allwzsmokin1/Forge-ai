@@ -7,10 +7,10 @@ requires-python = ">=3.12"
 license = { text = "MIT" }
 
 authors = [
-    { name = "ForgeAI Contributors" }
+        { name = "ForgeAI Contributors" }
 ]
 
-dependencies = [
+dependencies =  [
     "fastapi",
     "uvicorn",
     "typer",
@@ -24,9 +24,21 @@ dependencies = [
 [project.scripts]
 forge = "forge.cli:app"
 
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+    "black",
+]
+
 [build-system]
 requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["forge*"]
+exclude = ["tests*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

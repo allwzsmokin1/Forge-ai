@@ -1,33 +1,29 @@
+from pathlib import Path
+
 import typer
 from rich import print
 
-app = typer.Typer(
-    help="ForgeAI - Multi-Agent Software Engineering Platform"
-)
+from . import __version__
+from .plugins import manager
+
+app = typer.Typer(help="ForgeAI - Multi-Agent Software Engineering Platform")
+
 
 @app.command()
 def version():
     """Show ForgeAI version."""
-    print("[green]ForgeAI v0.0.1[/green]")
+    print(f"[green]ForgeAI v{__version__}[/green]")
+
 
 @app.command()
 def doctor():
     """Verify installation."""
     print("[green]ForgeAI installation looks good.[/green]")
 
-if __name__ == "__main__":
-    app()
-from pathlib import Path
-import typer
-from rich import print
-
-app = typer.Typer(help="ForgeAI")
-
 
 @app.command()
 def init(name: str):
     """Create a new ForgeAI project."""
-
     root = Path(name)
 
     folders = [
@@ -50,23 +46,8 @@ def init(name: str):
 
 @app.command()
 def plugins():
-    from forge.plugins import manager
-
+    """List discovered ForgeAI plugins."""
     manager.discover()
 
     for plugin in manager.list_plugins():
         print(plugin)
-
-
-@app.command()
-def version():
-    print("ForgeAI v0.0.1")
-
-
-@app.command()
-def doctor():
-    print("[green]Everything looks good.[/green]")
-
-
-if __name__ == "__main__":
-    app()
