@@ -96,5 +96,6 @@ def test_scheduler_retries_failed_tasks() -> None:
     )
 
     assert attempts["count"] == 2
+    assert graph.tasks["task-a"].max_retries == 1
     assert result.attempts["task-a"] == 2
     assert result.states["task-a"] == TASK_STATUS_COMPLETED
