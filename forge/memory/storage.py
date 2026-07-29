@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from .models import ConversationMemory, MemoryEntry, ProjectMemory
+from ..runtime import RuntimeManager, get_runtime
 
 
 class StorageBackend(ABC):
@@ -27,9 +28,14 @@ class StorageBackend(ABC):
 class JSONStorage(StorageBackend):
     """JSON file storage backend for project memory."""
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, runtime_manager: RuntimeManager | None = None) -> None:
         self._path = Path(path)
-        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._runtime_manager = runtime_manager or get_runtime()
+        self._runtime_manager.execute(
+            "filesystem",
+            operation="mkdir",
+            payload={"path": str(self._path.parent), "parents": True, "exist_ok": True},
+        )
 
     def save(self, memory: ProjectMemory) -> None:
         data = {
@@ -47,7 +53,16 @@ class JSONStorage(StorageBackend):
                 "entries": [self._serialize_value(entry) for entry in memory.conversation.entries],
             },
         }
-        self._path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        self._runtime_manager.execute(
+            "filesystem",
+            operation="write_text",
+            payload={
+                "path": str(self._path),
+                "content": json.dumps(data, indent=2),
+                "encoding": "utf-8",
+                "create_parents": True,
+            },
+        )
 
     def _serialize_value(self, value: Any) -> Any:
         if dataclasses.is_dataclass(value):
@@ -62,10 +77,21 @@ class JSONStorage(StorageBackend):
         return value
 
     def load(self) -> ProjectMemory:
-        if not self._path.exists():
+        exists = self._runtime_manager.execute(
+            "filesystem",
+            operation="exists",
+            payload={"path": str(self._path)},
+        ).output
+        if not exists:
             raise FileNotFoundError(f"Memory file {self._path} does not exist")
 
-        raw = json.loads(self._path.read_text(encoding="utf-8"))
+        raw = json.loads(
+            self._runtime_manager.execute(
+                "filesystem",
+                operation="read_text",
+                payload={"path": str(self._path), "encoding": "utf-8"},
+            ).output
+        )
         conversation_raw = raw.get("conversation", {})
         memory = ProjectMemory(
             name=raw["name"],

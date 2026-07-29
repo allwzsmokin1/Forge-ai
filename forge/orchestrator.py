@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from .agents import BaseAgent, CoderAgent, PlannerAgent, ResearchAgent, ReviewerAgent, Task
 from .logger import logger
 from .memory import MemoryManager
+from .runtime import RuntimeManager, get_runtime
 
 
 @dataclass(frozen=True)
@@ -50,11 +51,13 @@ class Orchestrator:
         self,
         logger_instance: Optional[logging.Logger] = None,
         memory_manager: Optional[MemoryManager] = None,
+        runtime_manager: Optional[RuntimeManager] = None,
         project_name: str = "ForgeAI",
         memory_path: Optional[str] = None,
     ) -> None:
         self._logger = logger_instance or logger
         self._agents: List[Tuple[Tuple[str, ...], BaseAgent]] = []
+        self._runtime_manager = runtime_manager or get_runtime()
         self._memory_manager = (
             memory_manager
             if memory_manager is not None
@@ -65,10 +68,22 @@ class Orchestrator:
 
     def _register_builtin_agents(self) -> None:
         """Register the built-in agents with default keyword matching."""
-        self.register_agent(PlannerAgent(), keywords=("plan", "task", "goal", "feature"))
-        self.register_agent(CoderAgent(), keywords=("code", "coding", "implement", "write"))
-        self.register_agent(ReviewerAgent(), keywords=("review", "bug", "quality"))
-        self.register_agent(ResearchAgent(), keywords=("research", "docs", "documentation"))
+        self.register_agent(
+            PlannerAgent(runtime_manager=self._runtime_manager),
+            keywords=("plan", "task", "goal", "feature"),
+        )
+        self.register_agent(
+            CoderAgent(runtime_manager=self._runtime_manager),
+            keywords=("code", "coding", "implement", "write"),
+        )
+        self.register_agent(
+            ReviewerAgent(runtime_manager=self._runtime_manager),
+            keywords=("review", "bug", "quality"),
+        )
+        self.register_agent(
+            ResearchAgent(runtime_manager=self._runtime_manager),
+            keywords=("research", "docs", "documentation"),
+        )
 
     def register_agent(self, agent: BaseAgent, keywords: Sequence[str]) -> None:
         """Register an agent with one or more keywords for dispatching.
@@ -77,6 +92,8 @@ class Orchestrator:
             agent: Agent implementation to register.
             keywords: Keywords used to select this agent for a task.
         """
+        if hasattr(agent, "set_runtime_manager"):
+            agent.set_runtime_manager(self._runtime_manager)
         normalized_keywords = tuple(keyword.lower() for keyword in keywords)
         self._agents.append((normalized_keywords, agent))
         self._logger.info("Registered agent %s with keywords %s", agent.name, normalized_keywords)

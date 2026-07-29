@@ -5,6 +5,8 @@ from __future__ import annotations
 import abc
 from typing import Any
 
+from ..runtime import RuntimeManager, get_runtime
+
 
 class BaseAgent(abc.ABC):
     """Abstract base class for Forge-AI agents.
@@ -13,6 +15,9 @@ class BaseAgent(abc.ABC):
     The run method should execute the agent's primary responsibility and return
     a typed result appropriate for the concrete agent.
     """
+
+    def __init__(self, runtime_manager: RuntimeManager | None = None) -> None:
+        self._runtime_manager = runtime_manager or get_runtime()
 
     @property
     @abc.abstractmethod
@@ -36,3 +41,30 @@ class BaseAgent(abc.ABC):
             A structured result value from the agent.
         """
         raise NotImplementedError
+
+    @property
+    def runtime_manager(self) -> RuntimeManager:
+        """Return the runtime manager bound to this agent."""
+
+        return self._runtime_manager
+
+    def set_runtime_manager(self, runtime_manager: RuntimeManager) -> None:
+        """Update the runtime manager used by the agent."""
+
+        self._runtime_manager = runtime_manager
+
+    def execute_tool(
+        self,
+        tool_name: str,
+        operation: str = "run",
+        payload: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Execute a runtime tool through the shared registry."""
+
+        return self.runtime_manager.execute(
+            tool_name,
+            operation=operation,
+            payload=payload,
+            **kwargs,
+        )

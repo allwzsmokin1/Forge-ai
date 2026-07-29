@@ -4,20 +4,40 @@ Forge-AI is a modular multi-agent assistant platform designed for extensible sof
 
 ## Architecture
 
-Forge-AI uses a clean agent-based architecture with a shared abstract base class and specialized agents for planning, coding, reviewing, and researching.
+Forge-AI uses a clean agent-based architecture with a shared abstract base class, a unified runtime/tool layer, and specialized agents for planning, coding, reviewing, and researching.
 
 ```text
 forge/
-└── agents/
+├── agents/
+│   ├── __init__.py
+│   ├── base.py
+│   ├── planner.py
+│   ├── coder.py
+│   ├── reviewer.py
+│   └── researcher.py
+├── runtime/
+│   ├── __init__.py
+│   ├── manager.py
+│   ├── registry.py
+│   ├── permissions.py
+│   ├── metrics.py
+│   └── lifecycle.py
+└── tools/
     ├── __init__.py
-    ├── base.py
-    ├── planner.py
-    ├── coder.py
-    ├── reviewer.py
-    └── researcher.py
+    ├── filesystem.py
+    ├── terminal.py
+    ├── git.py
+    ├── python.py
+    ├── docker.py
+    ├── search.py
+    ├── web.py
+    └── archive.py
 ```
 
 - `BaseAgent`: abstract contract for all agents.
+- `RuntimeManager`: shared tool runtime with permissions, retries, metrics, hooks, and health checks.
+- `ToolRegistry`: central registry for built-in and plugin-provided tools.
+- `forge.tools`: common execution interface for Terminal, Filesystem, Git, Python, Docker, Search, Web, and Archive tools.
 - `PlannerAgent`: decomposes user goals into ordered tasks with priority.
 - `CoderAgent`: generates Python code, performs refactors, and explains code.
 - `ReviewerAgent`: reviews code, highlights issues, and returns severity levels.
@@ -62,6 +82,10 @@ forge/
 - `JSONStorage`: initial pluggable storage backend with JSON persistence.
 
 The memory layer is designed so a SQL backend can replace JSON storage without changing the orchestrator or agent APIs.
+
+## Runtime & Tooling
+
+The runtime layer mediates all tool execution behind a shared registry and permission model. Services such as the CLI, plugin discovery, and JSON memory storage now request filesystem capabilities through the runtime instead of calling the operating system directly. Tools publish lifecycle events, collect execution metrics, support retries, and expose health checks for integration diagnostics.
 
 ## Testing
 

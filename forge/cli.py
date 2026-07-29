@@ -5,8 +5,47 @@ from rich import print
 
 from . import __version__
 from .plugins import manager
+from .runtime import RuntimeManager, get_runtime
 
 app = typer.Typer(help="ForgeAI - Multi-Agent Software Engineering Platform")
+
+
+def initialize_project(
+    name: str,
+    runtime_manager: RuntimeManager | None = None,
+) -> Path:
+    """Create a new ForgeAI project using the runtime filesystem tool."""
+
+    runtime = runtime_manager or get_runtime()
+    root = Path(name)
+    folders = [
+        "src",
+        "tests",
+        "docs",
+        "plugins",
+        ".forge",
+    ]
+    runtime.execute(
+        "filesystem",
+        operation="mkdir",
+        payload={"path": str(root), "parents": False, "exist_ok": True},
+    )
+    for folder in folders:
+        runtime.execute(
+            "filesystem",
+            operation="mkdir",
+            payload={
+                "path": str(root / folder),
+                "parents": True,
+                "exist_ok": True,
+            },
+        )
+    runtime.execute(
+        "filesystem",
+        operation="write_text",
+        payload={"path": str(root / "README.md"), "content": f"# {name}\n"},
+    )
+    return root
 
 
 @app.command()
@@ -24,23 +63,7 @@ def doctor():
 @app.command()
 def init(name: str):
     """Create a new ForgeAI project."""
-    root = Path(name)
-
-    folders = [
-        "src",
-        "tests",
-        "docs",
-        "plugins",
-        ".forge",
-    ]
-
-    root.mkdir(exist_ok=True)
-
-    for folder in folders:
-        (root / folder).mkdir(parents=True, exist_ok=True)
-
-    (root / "README.md").write_text(f"# {name}\n")
-
+    root = initialize_project(name)
     print(f"[green]Created project {name}[/green]")
 
 
