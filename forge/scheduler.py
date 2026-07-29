@@ -19,7 +19,10 @@ TASK_STATUS_FAILED = "failed"
 
 @dataclass(frozen=True)
 class RetryPolicy:
-    """Defines retry behavior for task execution."""
+    """Defines retry behavior for task execution.
+
+    Retry counts represent additional attempts after the initial execution.
+    """
 
     max_retries: int = 0
     backoff_seconds: float = 0.0
@@ -162,6 +165,7 @@ class TaskScheduler:
                     allowed_retries = (
                         retry_policy.max_retries if task.max_retries is None else task.max_retries
                     )
+                    # `allowed_retries` tracks extra retries beyond the first execution attempt.
                     if attempts[task_id] <= allowed_retries:
                         states[task_id] = TASK_STATUS_QUEUED
                         if retry_policy.backoff_seconds:

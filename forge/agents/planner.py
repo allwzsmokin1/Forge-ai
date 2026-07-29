@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from hashlib import blake2s
 from typing import Any
@@ -48,13 +49,15 @@ class PlannerAgent(BaseAgent):
         if not goal:
             return []
 
-        chain_tasks = " then " in goal.lower()
-        separators = [";", " and ", " then "]
+        chain_tasks = re.search(r"\bthen\b", goal, flags=re.IGNORECASE) is not None
+        separators = [r";", r"\sand\s", r"\sthen\s"]
         raw_tasks: list[str] = [goal]
         for separator in separators:
-            if separator in goal.lower():
+            if re.search(separator, goal, flags=re.IGNORECASE):
                 raw_tasks = [
-                    segment.strip() for segment in goal.split(separator) if segment.strip()
+                    segment.strip()
+                    for segment in re.split(separator, goal, flags=re.IGNORECASE)
+                    if segment.strip()
                 ]
                 break
 

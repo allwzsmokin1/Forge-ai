@@ -74,6 +74,7 @@ def test_scheduler_runs_independent_tasks_in_parallel() -> None:
 
 def test_scheduler_retries_failed_tasks() -> None:
     scheduler = TaskScheduler(max_workers=1)
+    # Task-level retry settings should override the scheduler policy default.
     graph = TaskGraph([build_task("task-a", 1, max_retries=1)])
     attempts = {"count": 0}
 

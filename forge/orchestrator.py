@@ -235,12 +235,12 @@ class OrchestratorAgent(BaseAgent):
             dependencies=list(task.dependencies),
         )
 
-        prompt = task.description if task.description else task.title
+        prompt = self._task_query(task)
         try:
             result = agent.run(
                 prompt,
                 task=task,
-                context=self._memory_manager.get_context(task.description or task.title),
+                context=self._memory_manager.get_context(prompt),
                 memory=self._memory_manager,
             )
             summary = self._summarize_result(result)
@@ -362,7 +362,7 @@ class OrchestratorAgent(BaseAgent):
             if task_type in task_types:
                 return agent
 
-        description = f"{task.title} {task.description}".strip().lower()
+        description = self._task_query(task).lower()
         best_match: tuple[int, int, BaseAgent] | None = None
         for index, (keywords, _, agent) in enumerate(self._agents):
             if any(keyword in description for keyword in keywords):
@@ -398,6 +398,9 @@ class OrchestratorAgent(BaseAgent):
         if isinstance(result, list):
             return ", ".join(self._summarize_result(item) for item in result)
         return str(result)
+
+    def _task_query(self, task: Task) -> str:
+        return task.description if task.description else task.title
 
 
 class Orchestrator(OrchestratorAgent):
