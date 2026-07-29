@@ -7,7 +7,7 @@ import time
 from typing import Any
 
 from forge.logger import configure_logger
-from forge.tools.base import ToolExecutionRequest, ToolExecutionResult
+from forge.tools.base import BaseTool, ToolExecutionRequest, ToolExecutionResult
 
 from .events import EventBus
 from .hooks import RuntimeHook
@@ -50,8 +50,7 @@ class RuntimeManager:
     def register_hook(self, hook: RuntimeHook) -> None:
         self.hooks.append(hook)
 
-    def register_tool(self, tool_name: str, tool: Any) -> None:
-        del tool_name
+    def register_tool(self, tool: BaseTool) -> None:
         self.registry.register(tool)
 
     def discover_plugins(self, package: str | None = None, group: str = "forge.tools") -> None:
@@ -62,7 +61,7 @@ class RuntimeManager:
         for tool in discovered:
             self.registry.register(tool)
 
-    def get_tool_for_capability(self, capability: str):
+    def get_tool_for_capability(self, capability: str) -> BaseTool:
         return self.registry.resolve_capability(capability)
 
     def execute(
@@ -184,7 +183,9 @@ class RuntimeManager:
                     {"agent": agent_name, "tool": tool_name, "action": action, "attempt": attempts},
                 )
 
-        return ToolOutcome(success=False, error=last_error or "Tool execution failed", attempts=attempts)
+        return ToolOutcome(
+            success=False, error=last_error or "Tool execution failed", attempts=attempts
+        )
 
     def execute_capability(
         self,

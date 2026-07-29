@@ -36,7 +36,10 @@ class FilesystemTool(BaseTool):
             return self._ok(path.exists())
 
         if action == "mkdir":
-            path.mkdir(parents=bool(payload.get("parents", True)), exist_ok=bool(payload.get("exist_ok", True)))
+            path.mkdir(
+                parents=bool(payload.get("parents", True)),
+                exist_ok=bool(payload.get("exist_ok", True)),
+            )
             return self._ok({"path": str(path)})
 
         if action == "listdir":

@@ -22,7 +22,7 @@ class WebTool(BaseTool):
 
         req = Request(url, headers={"User-Agent": "forge-runtime/0.0.1"})
         timeout = float(request.payload.get("timeout", 10.0))
-        with urlopen(req, timeout=timeout) as response:  # noqa: S310
+        with urlopen(req, timeout=timeout) as response:
             body = response.read().decode("utf-8", errors="replace")
             return self._ok(
                 {

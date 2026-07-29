@@ -19,7 +19,7 @@ from forge.tools import (
 
 
 class _Handler(BaseHTTPRequestHandler):
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"hello")
@@ -29,7 +29,9 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 def test_terminal_tool_runs_command() -> None:
-    result = TerminalTool().execute(ToolExecutionRequest(action="run", payload={"command": "echo ok"}))
+    result = TerminalTool().execute(
+        ToolExecutionRequest(action="run", payload={"command": "echo ok"})
+    )
 
     assert result.success is True
     assert "ok" in result.data["stdout"]
@@ -40,9 +42,13 @@ def test_filesystem_tool_read_write(tmp_path: Path) -> None:
     tool = FilesystemTool()
 
     write_result = tool.execute(
-        ToolExecutionRequest(action="write_text", payload={"path": str(file_path), "content": "data"})
+        ToolExecutionRequest(
+            action="write_text", payload={"path": str(file_path), "content": "data"}
+        )
     )
-    read_result = tool.execute(ToolExecutionRequest(action="read_text", payload={"path": str(file_path)}))
+    read_result = tool.execute(
+        ToolExecutionRequest(action="read_text", payload={"path": str(file_path)})
+    )
 
     assert write_result.success is True
     assert read_result.data == "data"
@@ -105,8 +111,7 @@ def test_archive_tool_create_extract(tmp_path: Path) -> None:
 
 def test_web_tool_fetches_content() -> None:
     server = HTTPServer(("127.0.0.1", 0), _Handler)
-    thread = threading.Thread(target=server.serve_forever)
-    thread.daemon = True
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     url = f"http://127.0.0.1:{server.server_port}/"
 

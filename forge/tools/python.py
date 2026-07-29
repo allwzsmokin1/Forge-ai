@@ -34,5 +34,7 @@ class PythonTool(BaseTool):
         return ToolExecutionResult(
             success=success,
             data={"stdout": completed.stdout, "stderr": completed.stderr, "command": command},
-            error=None if success else f"Python command failed with exit code {completed.returncode}",
+            error=(
+                None if success else f"Python command failed with exit code {completed.returncode}"
+            ),
         )

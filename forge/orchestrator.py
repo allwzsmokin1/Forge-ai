@@ -32,6 +32,10 @@ from .scheduler import (
     TaskScheduler,
 )
 
+AGENT_PERMISSIONS: dict[str, tuple[str, ...]] = {
+    "GitAgent": ("tool:git",),
+}
+
 
 @dataclass(frozen=True)
 class TaskResult:
@@ -165,7 +169,8 @@ class OrchestratorAgent(BaseAgent):
         normalized_keywords = tuple(keyword.lower() for keyword in keywords)
         normalized_task_types = tuple(task_type.lower() for task_type in (task_types or ()))
         agent.set_runtime(self._runtime)
-        self._runtime.permissions.grant(agent.name, "*")
+        for permission in AGENT_PERMISSIONS.get(agent.name, ()):
+            self._runtime.permissions.grant(agent.name, permission)
         self._agents.append((normalized_keywords, normalized_task_types, agent))
         self._logger.info(
             "event=agent_registered agent=%s keywords=%s task_types=%s",

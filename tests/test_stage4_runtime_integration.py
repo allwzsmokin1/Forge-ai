@@ -34,9 +34,15 @@ def test_git_agent_uses_runtime_capability(tmp_path: Path) -> None:
         config=Settings(max_parallel_tasks=2, default_task_retries=1),
     )
 
-    report = orchestrator.run("implement planner and commit planner")
-    git_task = next(result for result in report.task_results if result.task.task_type == "git")
+    report = orchestrator.run("implement feature and commit changes")
+    git_task = next(
+        (result for result in report.task_results if result.task.task_type == "git"), None
+    )
 
+    assert git_task is not None
     assert git_task.status == "completed"
     assert "Prepare repository changes" in git_task.result.summary
-    assert "Current git status" in git_task.result.summary or "Working tree is clean" in git_task.result.summary
+    assert (
+        "Current git status" in git_task.result.summary
+        or "Working tree is clean" in git_task.result.summary
+    )

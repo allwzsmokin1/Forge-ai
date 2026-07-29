@@ -37,7 +37,9 @@ class GitAgent(BaseAgent):
         )
         if tool_result and tool_result.success and isinstance(tool_result.data, dict):
             stdout = str(tool_result.data.get("stdout", "")).strip()
-            runtime_summary = f" Current git status:\n{stdout}" if stdout else " Working tree is clean."
+            runtime_summary = (
+                f" Current git status:\n{stdout}" if stdout else " Working tree is clean."
+            )
         elif tool_result and tool_result.error:
             runtime_summary = f" Runtime git check unavailable ({tool_result.error})."
 
