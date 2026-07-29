@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
 
 from .base import BaseAgent
 
@@ -31,7 +30,7 @@ class ReviewerAgent(BaseAgent):
             "severity levels for each finding."
         )
 
-    def run(self, prompt: str, **kwargs: object) -> List[ReviewFinding]:
+    def run(self, prompt: str, **kwargs: object) -> list[ReviewFinding]:
         """Review code and return a list of findings.
 
         The reviewer applies basic static heuristics to identify security risks,
@@ -47,13 +46,13 @@ class ReviewerAgent(BaseAgent):
                 )
             ]
 
-        findings: List[ReviewFinding] = []
+        findings: list[ReviewFinding] = []
         findings.extend(self._find_security_issues(code))
         findings.extend(self._find_style_issues(code))
         return findings
 
-    def _find_security_issues(self, code: str) -> List[ReviewFinding]:
-        findings: List[ReviewFinding] = []
+    def _find_security_issues(self, code: str) -> list[ReviewFinding]:
+        findings: list[ReviewFinding] = []
         if "eval(" in code or "exec(" in code:
             findings.append(
             ReviewFinding(
@@ -67,8 +66,8 @@ class ReviewerAgent(BaseAgent):
         )
         return findings
 
-    def _find_style_issues(self, code: str) -> List[ReviewFinding]:
-        findings: List[ReviewFinding] = []
+    def _find_style_issues(self, code: str) -> list[ReviewFinding]:
+        findings: list[ReviewFinding] = []
         if "TODO" in code:
             findings.append(
                 ReviewFinding(
