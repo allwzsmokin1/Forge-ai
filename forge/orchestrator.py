@@ -1,20 +1,29 @@
-"""Orchestrator for coordinating Forge-AI agents.
-
-The orchestration layer is intentionally registry-driven so additional agents can
-be registered later without changing orchestrator control flow. The design uses
-small dataclasses for structured results and dependency injection through the
-agent registry.
-"""
+"""Orchestrator for coordinating Forge-AI agents."""
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any
 
-from .agents import BaseAgent, CoderAgent, PlannerAgent, ResearchAgent, ReviewerAgent, Task
-from .logger import logger
+from .agents import (
+    BaseAgent,
+    CoderAgent,
+    DebugAgent,
+    DocumentationAgent,
+    GitAgent,
+    PlannerAgent,
+    ResearchAgent,
+    ReviewerAgent,
+    Task,
+    TestAgent,
+)
+from .config import settings
+from .logger import log_structured, logger
 from .memory import MemoryManager
+from .scheduler import Scheduler
+from .tasks import TaskExecution, TaskExecutionError, TaskState
 
 
 @dataclass(frozen=True)
@@ -24,8 +33,9 @@ class TaskResult:
     task: Task
     agent_name: str
     status: str
+    attempts: int = 0
     result: Any = None
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -33,65 +43,62 @@ class ExecutionReport:
     """Summary of an orchestration run."""
 
     goal: str
-    task_results: List[TaskResult] = field(default_factory=list)
+    task_results: list[TaskResult] = field(default_factory=list)
+    task_graph: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    max_parallelism: int = 0
     success: bool = True
 
 
-class Orchestrator:
-    """Coordinate multiple agents for a single user goal.
-
-    The orchestrator accepts a goal, asks the planner to decompose it into tasks,
-    and then dispatches each task to the most appropriate registered agent. The
-    dispatch decision is based on keyword matching and a simple rule map that
-    can be extended over time.
-    """
+class OrchestratorAgent:
+    """Coordinate multi-agent execution for a user goal."""
 
     def __init__(
         self,
-        logger_instance: Optional[logging.Logger] = None,
-        memory_manager: Optional[MemoryManager] = None,
-        project_name: str = "ForgeAI",
-        memory_path: Optional[str] = None,
+        logger_instance: logging.Logger | None = None,
+        memory_manager: MemoryManager | None = None,
+        project_name: str = settings.app_name,
+        memory_path: str | None = None,
+        max_parallel_tasks: int | None = None,
     ) -> None:
         self._logger = logger_instance or logger
-        self._agents: List[Tuple[Tuple[str, ...], BaseAgent]] = []
+        self._agents: list[tuple[tuple[str, ...], BaseAgent]] = []
         self._memory_manager = (
             memory_manager
             if memory_manager is not None
-            else MemoryManager(project_name=project_name, memory_path=memory_path)
+            else MemoryManager(
+                project_name=project_name,
+                memory_path=memory_path or settings.memory.path,
+            )
+        )
+        self._scheduler = Scheduler(
+            max_workers=max_parallel_tasks or settings.scheduler.max_parallel_tasks,
+            logger_instance=self._logger,
         )
         self._memory_manager.load()
         self._register_builtin_agents()
 
     def _register_builtin_agents(self) -> None:
-        """Register the built-in agents with default keyword matching."""
         self.register_agent(PlannerAgent(), keywords=("plan", "task", "goal", "feature"))
         self.register_agent(CoderAgent(), keywords=("code", "coding", "implement", "write"))
         self.register_agent(ReviewerAgent(), keywords=("review", "bug", "quality"))
         self.register_agent(ResearchAgent(), keywords=("research", "docs", "documentation"))
+        self.register_agent(TestAgent(), keywords=("test", "validate", "verify"))
+        self.register_agent(DebugAgent(), keywords=("debug", "retry", "failure"))
+        self.register_agent(DocumentationAgent(), keywords=("document", "readme", "guide"))
+        self.register_agent(GitAgent(), keywords=("git", "branch", "commit", "release"))
 
     def register_agent(self, agent: BaseAgent, keywords: Sequence[str]) -> None:
-        """Register an agent with one or more keywords for dispatching.
+        """Register an agent with one or more keywords for dispatching."""
 
-        Args:
-            agent: Agent implementation to register.
-            keywords: Keywords used to select this agent for a task.
-        """
         normalized_keywords = tuple(keyword.lower() for keyword in keywords)
         self._agents.append((normalized_keywords, agent))
         self._logger.info("Registered agent %s with keywords %s", agent.name, normalized_keywords)
 
     def run(self, goal: str) -> ExecutionReport:
-        """Execute the full workflow for a single user goal.
+        """Execute the full workflow for a single user goal."""
 
-        Args:
-            goal: The raw user request.
-
-        Returns:
-            An execution report containing all task results.
-        """
         self._logger.info("Starting orchestration for goal: %s", goal)
-        planner = self._resolve_agent_for_task("plan")
+        planner = self._resolve_agent_for_type("planner")
         if planner is None:
             raise RuntimeError("No planner agent registered")
 
@@ -100,89 +107,179 @@ class Orchestrator:
             tasks = [tasks]
 
         self._memory_manager.set_goal_summary(goal)
+        self._memory_manager.add_project_goal(goal)
         self._memory_manager.memory.conversation.goal = goal
+        self._memory_manager.add_summary(
+            title="Goal",
+            content=goal,
+            categories=["goal"],
+            metadata={"task_count": len(tasks)},
+        )
+        log_structured(self._logger, logging.INFO, "orchestration_started", goal=goal)
 
-        task_results: List[TaskResult] = []
         try:
-            for task in tasks:
-                task_result = self.execute_task(task)
-                task_results.append(task_result)
-
-            success = all(result.status == "completed" for result in task_results)
-            report = ExecutionReport(goal=goal, task_results=task_results, success=success)
-            self._logger.info("Completed orchestration with success=%s", success)
+            scheduler_report = self._scheduler.run(
+                tasks,
+                self.execute_task,
+                on_state_change=self._record_task_state,
+            )
+            task_results = [
+                TaskResult(
+                    task=state.task,
+                    agent_name=state.assigned_agent or state.task.agent_hint or "Unassigned",
+                    status=state.status.value,
+                    attempts=state.attempts,
+                    result=state.result,
+                    error=state.error,
+                )
+                for state in scheduler_report.task_states
+            ]
+            report = ExecutionReport(
+                goal=goal,
+                task_results=task_results,
+                task_graph=scheduler_report.task_graph,
+                max_parallelism=scheduler_report.max_parallelism,
+                success=scheduler_report.success,
+            )
+            self._memory_manager.add_summary(
+                title="Execution result",
+                content=f"Goal completed with success={report.success}.",
+                categories=["execution"],
+                metadata={
+                    "success": report.success,
+                    "max_parallelism": report.max_parallelism,
+                },
+            )
+            self._logger.info("Completed orchestration with success=%s", report.success)
             return report
         finally:
             self._memory_manager.save()
 
-    def execute_task(self, task: Task) -> TaskResult:
-        """Execute a single task using the best matching registered agent.
+    def execute_task(self, task: Task, attempt: int) -> TaskExecution:
+        """Execute a single task using the best matching registered agent."""
 
-        Args:
-            task: The task to execute.
-
-        Returns:
-            A TaskResult with status and optional error information.
-        """
-        description = f"{task.title} {task.description}".strip().lower()
-        agent = self._select_agent(description)
+        agent = self._select_agent(task)
         if agent is None:
-            self._logger.warning("No agent registered for task %s", task.title)
-            return TaskResult(task=task, agent_name="None", status="failed", error="No agent registered")
+            raise TaskExecutionError("Unassigned", "No agent registered")
 
-        self._logger.info("Executing task %s with %s", task.title, agent.name)
-        prompt = task.description if task.description else task.title
+        self._memory_manager.add_agent_decision(
+            agent_name=agent.name,
+            task_id=task.task_id,
+            decision=f"Selected {agent.name} for {task.task_type} task.",
+            rationale="Matched agent capabilities to planned task type.",
+            related_tasks=list(task.dependencies),
+            metadata={"attempt": attempt},
+        )
+        prompt = task.description or task.title
         try:
-            result = agent.run(prompt, task=task)
-            task_result = TaskResult(task=task, agent_name=agent.name, status="completed", result=result)
-            self._memory_manager.add_entry(
-                task_title=task.title,
-                task_description=task.description,
-                agent_name=agent.name,
-                status=task_result.status,
-                result=result,
-                error=None,
-                categories=[agent.name.lower()],
-            )
+            result = agent.run(prompt, task=task, attempt=attempt, memory=self._memory_manager)
+            self._capture_result_context(task, agent.name, result)
             self._memory_manager.save()
-            return task_result
-        except Exception as exc:  # pragma: no cover - defensive branch
-            self._logger.exception("Task %s failed with %s", task.title, exc)
-            task_result = TaskResult(task=task, agent_name=agent.name, status="failed", error=str(exc))
-            self._memory_manager.add_entry(
-                task_title=task.title,
-                task_description=task.description,
-                agent_name=agent.name,
-                status=task_result.status,
-                result=None,
-                error=str(exc),
-                categories=[agent.name.lower()],
-            )
+            return TaskExecution(agent_name=agent.name, result=result)
+        except Exception as exc:
+            self._logger.exception("Task %s failed", task.title)
+            self._record_debug_context(task, attempt, agent.name, str(exc))
             self._memory_manager.save()
-            return task_result
+            raise TaskExecutionError(agent.name, str(exc)) from exc
 
-    def _select_agent(self, description: str) -> Optional[BaseAgent]:
-        """Choose the best-fitting agent for a task description.
-
-        Matching is based on the longest keyword match. When multiple agents have
-        the same score, a later registration wins so custom agents can override
-        built-in defaults when they are explicitly registered.
-        """
-        lowered = description.lower()
-        best_match: Optional[Tuple[int, int, BaseAgent]] = None
+    def _select_agent(self, task: Task) -> BaseAgent | None:
+        lowered = f"{task.title} {task.description}".lower()
+        best_match: tuple[int, int, BaseAgent] | None = None
         for index, (keywords, agent) in enumerate(self._agents):
-            if any(keyword in lowered for keyword in keywords):
-                score = max(len(keyword) for keyword in keywords if keyword in lowered)
-                if best_match is None or score > best_match[0] or (
-                    score == best_match[0] and index > best_match[1]
-                ):
-                    best_match = (score, index, agent)
+            if task.agent_hint and task.agent_hint.lower() == agent.name.lower():
+                return agent
+
+            keyword_matches = [keyword for keyword in keywords if keyword in lowered]
+            if not agent.can_handle(task) and not keyword_matches:
+                continue
+
+            score = max((len(keyword) for keyword in keyword_matches), default=0)
+            if task.task_type.lower() in {
+                task_type.lower() for task_type in agent.supported_task_types
+            }:
+                score = max(score, len(task.task_type))
+
+            if (
+                best_match is None
+                or score > best_match[0]
+                or (score == best_match[0] and index > best_match[1])
+            ):
+                best_match = (score, index, agent)
+
         return None if best_match is None else best_match[2]
 
-    def _resolve_agent_for_task(self, task_type: str) -> Optional[BaseAgent]:
-        """Resolve a specific built-in agent by task type."""
+    def _resolve_agent_for_type(self, task_type: str) -> BaseAgent | None:
         lowered = task_type.lower()
-        for keywords, agent in self._agents:
-            if any(keyword == lowered for keyword in keywords):
+        for _, agent in self._agents:
+            if lowered in {name.lower() for name in agent.supported_task_types}:
                 return agent
         return None
+
+    def _record_task_state(self, state: TaskState) -> None:
+        self._memory_manager.record_task_state(state)
+        self._memory_manager.save()
+        log_structured(
+            self._logger,
+            logging.INFO,
+            "task_state_changed",
+            task_id=state.task.task_id,
+            status=state.status.value,
+            attempts=state.attempts,
+            agent=state.assigned_agent or state.task.agent_hint,
+            dependencies=list(state.task.dependencies),
+        )
+
+    def _record_debug_context(
+        self,
+        task: Task,
+        attempt: int,
+        agent_name: str,
+        error: str,
+    ) -> None:
+        debug_agent = self._resolve_agent_for_type("debug")
+        if debug_agent is None or debug_agent.name == agent_name:
+            return
+
+        try:
+            diagnosis = debug_agent.run(
+                f"Task {task.title} failed with error: {error}",
+                task=task,
+                attempt=attempt,
+                error=error,
+            )
+            self._memory_manager.add_agent_decision(
+                agent_name=debug_agent.name,
+                task_id=task.task_id,
+                decision="Generated retry guidance.",
+                rationale=self._summarize_result(diagnosis),
+                related_tasks=[task.task_id],
+                metadata={"attempt": attempt, "source_agent": agent_name},
+            )
+        except Exception:  # pragma: no cover - defensive branch
+            self._logger.exception("Debug agent failed while diagnosing task %s", task.task_id)
+
+    def _capture_result_context(self, task: Task, agent_name: str, result: Any) -> None:
+        self._memory_manager.add_summary(
+            title=task.title,
+            content=self._summarize_result(result),
+            categories=[task.task_type, agent_name.lower()],
+            metadata={"task_id": task.task_id},
+        )
+
+        for file_path in getattr(result, "files_to_update", []):
+            self._memory_manager.add_file_metadata(
+                file_path=file_path,
+                summary=f"{agent_name} recommended updates during {task.title}.",
+                tags=[task.task_type, agent_name.lower()],
+                metadata={"task_id": task.task_id},
+            )
+
+    def _summarize_result(self, result: Any) -> str:
+        if hasattr(result, "__dict__"):
+            return ", ".join(
+                f"{key}={value}" for key, value in vars(result).items() if not key.startswith("_")
+            )
+        return str(result)
+
+
+Orchestrator = OrchestratorAgent

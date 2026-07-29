@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
 
 from .base import BaseAgent
 
@@ -21,6 +20,14 @@ class ReviewerAgent(BaseAgent):
     """Agent responsible for reviewing Python code and surfacing potential issues."""
 
     @property
+    def supported_task_types(self) -> tuple[str, ...]:
+        return ("review",)
+
+    @property
+    def keywords(self) -> tuple[str, ...]:
+        return ("review", "bug", "quality", "security")
+
+    @property
     def name(self) -> str:
         return "ReviewerAgent"
 
@@ -31,7 +38,7 @@ class ReviewerAgent(BaseAgent):
             "severity levels for each finding."
         )
 
-    def run(self, prompt: str, **kwargs: object) -> List[ReviewFinding]:
+    def run(self, prompt: str, **kwargs: object) -> list[ReviewFinding]:
         """Review code and return a list of findings.
 
         The reviewer applies basic static heuristics to identify security risks,
@@ -47,34 +54,34 @@ class ReviewerAgent(BaseAgent):
                 )
             ]
 
-        findings: List[ReviewFinding] = []
+        findings: list[ReviewFinding] = []
         findings.extend(self._find_security_issues(code))
         findings.extend(self._find_style_issues(code))
         return findings
 
-    def _find_security_issues(self, code: str) -> List[ReviewFinding]:
-        findings: List[ReviewFinding] = []
+    def _find_security_issues(self, code: str) -> list[ReviewFinding]:
+        findings: list[ReviewFinding] = []
         if "eval(" in code or "exec(" in code:
             findings.append(
-            ReviewFinding(
-                issue="Use of eval/exec",
-                severity="high",
-                suggestion=(
-                    "Avoid eval and exec in production code. Use safe parsing or "
-                    "explicit logic instead."
-                ),
+                ReviewFinding(
+                    issue="Use of eval/exec",
+                    severity="high",
+                    suggestion=(
+                        "Avoid eval and exec in production code. Use safe parsing or "
+                        "explicit logic instead."
+                    ),
+                )
             )
-        )
         return findings
 
-    def _find_style_issues(self, code: str) -> List[ReviewFinding]:
-        findings: List[ReviewFinding] = []
+    def _find_style_issues(self, code: str) -> list[ReviewFinding]:
+        findings: list[ReviewFinding] = []
         if "TODO" in code:
             findings.append(
                 ReviewFinding(
                     issue="Unresolved TODO comment",
                     severity="low",
-                    suggestion="Replace TODO comments with completed implementation or a tracked issue."
+                    suggestion="Replace TODO comments with completed implementation or a tracked issue.",
                 )
             )
         if "print(" in code and "if __name__" not in code:
@@ -88,12 +95,12 @@ class ReviewerAgent(BaseAgent):
                     ),
                 )
             )
-        if "def " in code and "\"\"\"" not in code:
+        if "def " in code and '"""' not in code:
             findings.append(
                 ReviewFinding(
                     issue="Missing docstring",
                     severity="low",
-                    suggestion="Add a module or function docstring to improve maintainability."
+                    suggestion="Add a module or function docstring to improve maintainability.",
                 )
             )
         return findings

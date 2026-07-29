@@ -24,6 +24,14 @@ class CoderAgent(BaseAgent):
     """Agent responsible for producing Python code and explanations."""
 
     @property
+    def supported_task_types(self) -> tuple[str, ...]:
+        return ("code",)
+
+    @property
+    def keywords(self) -> tuple[str, ...]:
+        return ("code", "implement", "write", "refactor", "fix")
+
+    @property
     def name(self) -> str:
         return "CoderAgent"
 

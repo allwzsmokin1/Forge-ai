@@ -7,9 +7,16 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
-from .models import ConversationMemory, MemoryEntry, ProjectMemory
+from .models import (
+    AgentDecision,
+    ConversationMemory,
+    FileMetadata,
+    MemoryEntry,
+    MemorySummary,
+    ProjectMemory,
+)
 
 
 class StorageBackend(ABC):
@@ -39,6 +46,9 @@ class JSONStorage(StorageBackend):
             "completed_tasks": [self._serialize_value(entry) for entry in memory.completed_tasks],
             "failed_tasks": [self._serialize_value(entry) for entry in memory.failed_tasks],
             "code_summaries": memory.code_summaries,
+            "file_metadata": self._serialize_value(memory.file_metadata),
+            "agent_decisions": [self._serialize_value(entry) for entry in memory.agent_decisions],
+            "summaries": [self._serialize_value(entry) for entry in memory.summaries],
             "conversation": {
                 "goal": memory.conversation.goal,
                 "project_goals": memory.conversation.project_goals,
@@ -51,10 +61,7 @@ class JSONStorage(StorageBackend):
 
     def _serialize_value(self, value: Any) -> Any:
         if dataclasses.is_dataclass(value):
-            return {
-                key: self._serialize_value(val)
-                for key, val in asdict(value).items()
-            }
+            return {key: self._serialize_value(val) for key, val in asdict(value).items()}
         if isinstance(value, dict):
             return {key: self._serialize_value(val) for key, val in value.items()}
         if isinstance(value, (list, tuple)):
@@ -71,15 +78,72 @@ class JSONStorage(StorageBackend):
             name=raw["name"],
             created_at=raw["created_at"],
             goal_summary=raw.get("goal_summary"),
-            completed_tasks=[MemoryEntry(**entry) for entry in raw.get("completed_tasks", [])],
-            failed_tasks=[MemoryEntry(**entry) for entry in raw.get("failed_tasks", [])],
+            completed_tasks=[
+                self._load_memory_entry(entry) for entry in raw.get("completed_tasks", [])
+            ],
+            failed_tasks=[self._load_memory_entry(entry) for entry in raw.get("failed_tasks", [])],
             code_summaries=raw.get("code_summaries", []),
+            file_metadata={
+                path: self._load_file_metadata(file_metadata)
+                for path, file_metadata in raw.get("file_metadata", {}).items()
+            },
+            agent_decisions=[
+                self._load_agent_decision(entry) for entry in raw.get("agent_decisions", [])
+            ],
+            summaries=[self._load_summary(entry) for entry in raw.get("summaries", [])],
             conversation=ConversationMemory(
                 goal=conversation_raw.get("goal", ""),
                 project_goals=conversation_raw.get("project_goals", []),
                 architecture_decisions=conversation_raw.get("architecture_decisions", []),
                 important_files=conversation_raw.get("important_files", []),
-                entries=[MemoryEntry(**entry) for entry in conversation_raw.get("entries", [])],
+                entries=[
+                    self._load_memory_entry(entry) for entry in conversation_raw.get("entries", [])
+                ],
             ),
         )
         return memory
+
+    def _load_memory_entry(self, raw: dict[str, Any]) -> MemoryEntry:
+        return MemoryEntry(
+            timestamp=raw["timestamp"],
+            task_title=raw["task_title"],
+            task_description=raw["task_description"],
+            agent_name=raw["agent_name"],
+            status=raw["status"],
+            task_id=raw.get("task_id", ""),
+            attempt=raw.get("attempt", 1),
+            dependencies=raw.get("dependencies", []),
+            result=raw.get("result"),
+            error=raw.get("error"),
+            categories=raw.get("categories", []),
+            metadata=raw.get("metadata", {}),
+        )
+
+    def _load_file_metadata(self, raw: dict[str, Any]) -> FileMetadata:
+        return FileMetadata(
+            path=raw["path"],
+            summary=raw["summary"],
+            updated_at=raw["updated_at"],
+            tags=raw.get("tags", []),
+            metadata=raw.get("metadata", {}),
+        )
+
+    def _load_agent_decision(self, raw: dict[str, Any]) -> AgentDecision:
+        return AgentDecision(
+            timestamp=raw["timestamp"],
+            agent_name=raw["agent_name"],
+            task_id=raw.get("task_id", ""),
+            decision=raw["decision"],
+            rationale=raw.get("rationale", ""),
+            related_tasks=raw.get("related_tasks", []),
+            metadata=raw.get("metadata", {}),
+        )
+
+    def _load_summary(self, raw: dict[str, Any]) -> MemorySummary:
+        return MemorySummary(
+            timestamp=raw["timestamp"],
+            title=raw["title"],
+            content=raw["content"],
+            categories=raw.get("categories", []),
+            metadata=raw.get("metadata", {}),
+        )

@@ -1,14 +1,24 @@
 """Forge-AI memory package."""
 
 from .memory import MemoryManager
-from .models import ConversationMemory, MemoryEntry, ProjectMemory
+from .models import (
+    AgentDecision,
+    ConversationMemory,
+    FileMetadata,
+    MemoryEntry,
+    MemorySummary,
+    ProjectMemory,
+)
 from .storage import JSONStorage, StorageBackend
 
 __all__ = [
-    "MemoryManager",
-    "MemoryEntry",
+    "AgentDecision",
     "ConversationMemory",
-    "ProjectMemory",
+    "FileMetadata",
     "JSONStorage",
+    "MemoryEntry",
+    "MemoryManager",
+    "MemorySummary",
+    "ProjectMemory",
     "StorageBackend",
 ]

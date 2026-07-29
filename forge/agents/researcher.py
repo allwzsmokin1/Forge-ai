@@ -24,6 +24,14 @@ class ResearchAgent(BaseAgent):
     """Agent responsible for gathering documentation and summarizing best practices."""
 
     @property
+    def supported_task_types(self) -> tuple[str, ...]:
+        return ("research",)
+
+    @property
+    def keywords(self) -> tuple[str, ...]:
+        return ("research", "docs", "documentation", "investigate")
+
+    @property
     def name(self) -> str:
         return "ResearchAgent"
 
