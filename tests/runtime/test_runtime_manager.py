@@ -36,7 +36,7 @@ class StaticTool(RuntimeTool):
 
 
 @dataclass
-class HookState(RuntimeHook):
+class MockRuntimeHook(RuntimeHook):
     before: int = 0
     after: int = 0
     errors: int = 0
@@ -91,7 +91,7 @@ def test_runtime_retries_and_calls_hooks() -> None:
     registry = ToolRegistry()
     tool = StaticTool(fail_times=1)
     registry.register(tool)
-    hook = HookState()
+    hook = MockRuntimeHook()
     events: list[str] = []
     bus = EventBus()
     bus.subscribe("tool.execution.succeeded", lambda event: events.append(event.name))

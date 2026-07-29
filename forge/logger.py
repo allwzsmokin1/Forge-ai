@@ -7,7 +7,8 @@ class StructuredFormatter(logging.Formatter):
         runtime_event: Any = getattr(record, "runtime_event", None)
         if runtime_event is None:
             return super().format(record)
-        return f"{record.asctime if hasattr(record, 'asctime') else ''}{runtime_event}"
+        timestamp = self.formatTime(record, self.datefmt)
+        return f"{timestamp} runtime_event={runtime_event}"
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

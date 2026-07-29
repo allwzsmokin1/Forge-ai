@@ -25,7 +25,7 @@ class RecordingTool(RuntimeTool):
         return ToolExecutionResult(success=True, output={"ok": True})
 
 
-def _runtime_with_probe_tools() -> tuple[ToolRuntimeManager, dict[str, RecordingTool]]:
+def _create_runtime_with_recording_tools() -> tuple[ToolRuntimeManager, dict[str, RecordingTool]]:
     registry = ToolRegistry()
     tools = {
         "search": RecordingTool("search", ("search.text", "search.files")),
@@ -42,7 +42,7 @@ def _runtime_with_probe_tools() -> tuple[ToolRuntimeManager, dict[str, Recording
 
 
 def test_agents_use_runtime_capability_requests() -> None:
-    runtime, tools = _runtime_with_probe_tools()
+    runtime, tools = _create_runtime_with_recording_tools()
 
     CoderAgent(runtime=runtime).run("Write code", runtime_probe="Forge")
     ResearchAgent(runtime=runtime).run("Topic", source_url="https://example.com")
@@ -56,7 +56,7 @@ def test_agents_use_runtime_capability_requests() -> None:
 
 
 def test_orchestrator_injects_shared_runtime() -> None:
-    runtime, _ = _runtime_with_probe_tools()
+    runtime, _ = _create_runtime_with_recording_tools()
     orchestrator = Orchestrator(runtime=runtime)
 
     agent_runtimes = {agent.runtime for _, agent in orchestrator._agents}
