@@ -1,8 +1,12 @@
 """Tests for the Forge-AI LLM provider system."""
 
+import pytest
+
+from forge.agents import coder as coder_module
+from forge.agents import researcher as researcher_module
 from forge.agents.coder import CoderAgent
 from forge.agents.researcher import ResearchAgent
-from forge.llm import LLMProvider, MockLLMProvider, ProviderRegistry, registry
+from forge.llm import LLMProvider, MockLLMProvider, ProviderRegistry
 from forge.llm.providers import LLMResponse
 
 
@@ -21,6 +25,14 @@ class StaticProvider(LLMProvider):
 
     def generate(self, prompt: str, **kwargs: object) -> LLMResponse:
         return LLMResponse(text=self._text, metadata={"prompt": prompt, "options": kwargs})
+
+
+@pytest.fixture
+def isolated_registry(monkeypatch: pytest.MonkeyPatch) -> ProviderRegistry:
+    local_registry = ProviderRegistry()
+    monkeypatch.setattr(coder_module, "registry", local_registry)
+    monkeypatch.setattr(researcher_module, "registry", local_registry)
+    return local_registry
 
 
 def test_mock_provider_generates_code_response() -> None:
@@ -75,68 +87,56 @@ def test_provider_registry_set_default_supports_registered_provider() -> None:
     assert local_registry.get() is provider
 
 
-def test_coder_agent_uses_selected_provider() -> None:
-    original_provider_name = registry.get().name
+def test_coder_agent_uses_selected_provider(isolated_registry: ProviderRegistry) -> None:
     provider = StaticProvider(
         "coder-test",
         "CODE:\ndef custom() -> str:\n    return 'ok'\nEXPLANATION:\nCustom response",
     )
-    registry.register(provider)
-    registry.set_default(provider.name)
+    isolated_registry.register(provider)
+    isolated_registry.set_default(provider.name)
 
-    try:
-        result = CoderAgent().run("Write something")
-    finally:
-        registry.set_default(original_provider_name)
+    result = CoderAgent().run("Write something")
 
     assert result.code == "def custom() -> str:\n    return 'ok'"
     assert result.explanation == "Custom response"
 
 
-def test_coder_agent_handles_unstructured_provider_response() -> None:
-    original_provider_name = registry.get().name
+def test_coder_agent_handles_unstructured_provider_response(
+    isolated_registry: ProviderRegistry,
+) -> None:
     provider = StaticProvider("coder-unstructured", "def fallback() -> str:\n    return 'ok'")
-    registry.register(provider)
-    registry.set_default(provider.name)
+    isolated_registry.register(provider)
+    isolated_registry.set_default(provider.name)
 
-    try:
-        result = CoderAgent().run("Write something")
-    finally:
-        registry.set_default(original_provider_name)
+    result = CoderAgent().run("Write something")
 
     assert result.code == "def fallback() -> str:\n    return 'ok'"
     assert result.explanation == ""
 
 
-def test_research_agent_uses_selected_provider() -> None:
-    original_provider_name = registry.get().name
+def test_research_agent_uses_selected_provider(isolated_registry: ProviderRegistry) -> None:
     provider = StaticProvider(
         "research-test",
         "FINDINGS:\nCustom findings\nRECOMMENDATIONS:\nCustom recommendations",
     )
-    registry.register(provider)
-    registry.set_default(provider.name)
+    isolated_registry.register(provider)
+    isolated_registry.set_default(provider.name)
 
-    try:
-        result = ResearchAgent().run("Async patterns")
-    finally:
-        registry.set_default(original_provider_name)
+    result = ResearchAgent().run("Async patterns")
 
     assert result.topic == "Async patterns"
     assert result.findings == "Custom findings"
     assert result.recommendations == "Custom recommendations"
 
 
-def test_research_agent_handles_unstructured_provider_response() -> None:
-    original_provider_name = registry.get().name
+def test_research_agent_handles_unstructured_provider_response(
+    isolated_registry: ProviderRegistry,
+) -> None:
     provider = StaticProvider("research-unstructured", "Fallback research guidance")
-    registry.register(provider)
-    registry.set_default(provider.name)
+    isolated_registry.register(provider)
+    isolated_registry.set_default(provider.name)
 
-    try:
-        result = ResearchAgent().run("Async patterns")
-    finally:
-        registry.set_default(original_provider_name)
+    result = ResearchAgent().run("Async patterns")
 
     assert result.topic == "Async patterns"
     assert result.findings == "Fallback research guidance"
