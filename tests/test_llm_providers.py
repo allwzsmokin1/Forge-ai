@@ -108,5 +108,5 @@ def test_research_agent_uses_selected_provider() -> None:
         registry.set_default(original_provider.name)
 
     assert result.topic == "Async patterns"
-    assert result.findings == "FINDINGS:\nCustom findings"
+    assert result.findings == "Custom findings"
     assert result.recommendations == "Custom recommendations"

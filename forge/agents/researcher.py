@@ -36,4 +36,9 @@ class ResearchAgent(BaseAgent):
         topic = prompt.strip() or "general software engineering"
         response = registry.get().generate(topic, task_type="research")
         findings, _, recommendations = response.text.partition("\nRECOMMENDATIONS:\n")
-        return ResearchSummary(topic=topic, findings=findings, recommendations=recommendations)
+        normalized_findings = findings.removeprefix("FINDINGS:\n").strip()
+        return ResearchSummary(
+            topic=topic,
+            findings=normalized_findings,
+            recommendations=recommendations.strip(),
+        )
