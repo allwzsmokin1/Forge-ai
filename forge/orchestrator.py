@@ -9,8 +9,9 @@ agent registry.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any
 
 from .agents import BaseAgent, CoderAgent, PlannerAgent, ResearchAgent, ReviewerAgent, Task
 from .logger import logger
@@ -25,7 +26,7 @@ class TaskResult:
     agent_name: str
     status: str
     result: Any = None
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -33,7 +34,7 @@ class ExecutionReport:
     """Summary of an orchestration run."""
 
     goal: str
-    task_results: List[TaskResult] = field(default_factory=list)
+    task_results: list[TaskResult] = field(default_factory=list)
     success: bool = True
 
 
@@ -48,13 +49,13 @@ class Orchestrator:
 
     def __init__(
         self,
-        logger_instance: Optional[logging.Logger] = None,
-        memory_manager: Optional[MemoryManager] = None,
+        logger_instance: logging.Logger | None = None,
+        memory_manager: MemoryManager | None = None,
         project_name: str = "ForgeAI",
-        memory_path: Optional[str] = None,
+        memory_path: str | None = None,
     ) -> None:
         self._logger = logger_instance or logger
-        self._agents: List[Tuple[Tuple[str, ...], BaseAgent]] = []
+        self._agents: list[tuple[tuple[str, ...], BaseAgent]] = []
         self._memory_manager = (
             memory_manager
             if memory_manager is not None
@@ -102,7 +103,7 @@ class Orchestrator:
         self._memory_manager.set_goal_summary(goal)
         self._memory_manager.memory.conversation.goal = goal
 
-        task_results: List[TaskResult] = []
+        task_results: list[TaskResult] = []
         try:
             for task in tasks:
                 task_result = self.execute_task(task)
@@ -161,7 +162,7 @@ class Orchestrator:
             self._memory_manager.save()
             return task_result
 
-    def _select_agent(self, description: str) -> Optional[BaseAgent]:
+    def _select_agent(self, description: str) -> BaseAgent | None:
         """Choose the best-fitting agent for a task description.
 
         Matching is based on the longest keyword match. When multiple agents have
@@ -169,7 +170,7 @@ class Orchestrator:
         built-in defaults when they are explicitly registered.
         """
         lowered = description.lower()
-        best_match: Optional[Tuple[int, int, BaseAgent]] = None
+        best_match: tuple[int, int, BaseAgent] | None = None
         for index, (keywords, agent) in enumerate(self._agents):
             if any(keyword in lowered for keyword in keywords):
                 score = max(len(keyword) for keyword in keywords if keyword in lowered)
@@ -179,7 +180,7 @@ class Orchestrator:
                     best_match = (score, index, agent)
         return None if best_match is None else best_match[2]
 
-    def _resolve_agent_for_task(self, task_type: str) -> Optional[BaseAgent]:
+    def _resolve_agent_for_task(self, task_type: str) -> BaseAgent | None:
         """Resolve a specific built-in agent by task type."""
         lowered = task_type.lower()
         for keywords, agent in self._agents:

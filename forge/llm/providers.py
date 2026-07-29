@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -12,7 +12,7 @@ class LLMResponse:
     """Represents a normalized response from an LLM provider."""
 
     text: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class LLMProvider(abc.ABC):
