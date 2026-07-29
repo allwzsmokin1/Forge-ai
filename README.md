@@ -2,28 +2,35 @@
 
 Forge-AI is a modular multi-agent assistant platform designed for extensible software engineering workflows.
 
-## Phase 3 Highlights
+## Phase 4 Highlights
 
-Forge-AI now includes an autonomous orchestration layer that can break complex goals into dependency-aware tasks, schedule independent work in parallel, retry transient failures, and persist execution context across runs.
+Forge-AI now includes a unified runtime and tool ecosystem for all agents. The runtime provides centralized tool registration, capability-based dispatch, permissions, retries, eventing, lifecycle hooks, health checks, plugin discovery, and metrics collection.
 
 ## Architecture
 
-Forge-AI uses a clean agent-based architecture with a shared abstract base class and specialized agents for planning, coding, reviewing, testing, debugging, documentation, git workflow coordination, and researching.
+Forge-AI uses a clean agent-based architecture with a shared abstract base class, a centralized runtime manager, and specialized agents for planning, coding, reviewing, testing, debugging, documentation, git workflow coordination, and researching.
 
 ```text
 forge/
-└── agents/
-    ├── __init__.py
-    ├── base.py
-    ├── planner.py
-    ├── coder.py
-    ├── reviewer.py
-    ├── tester.py
-    ├── debugger.py
-    ├── documentation.py
-    ├── git.py
-    └── researcher.py
-forge/
+├── agents/
+├── runtime/
+│   ├── __init__.py
+│   ├── manager.py
+│   ├── registry.py
+│   ├── permissions.py
+│   ├── events.py
+│   ├── hooks.py
+│   ├── metrics.py
+│   └── plugins.py
+├── tools/
+│   ├── terminal.py
+│   ├── filesystem.py
+│   ├── git.py
+│   ├── python.py
+│   ├── docker.py
+│   ├── search.py
+│   ├── web.py
+│   └── archive.py
 ├── orchestrator.py
 └── scheduler.py
 ```
@@ -39,6 +46,9 @@ forge/
 - `ResearchAgent`: gathers documentation, summarizes findings, and recommends best practices.
 - `OrchestratorAgent`: builds a task DAG, routes work to specialized agents, and manages retries and state transitions.
 - `TaskScheduler`: executes independent tasks concurrently while respecting dependencies.
+- `RuntimeManager`: centralizes tool access, lifecycle events, retries, permissions, metrics, and health checks.
+- `ToolRegistry`: maps capabilities to tool implementations and supports plugin-based extension.
+- `Tool` implementations: provide a common execution interface for terminal, filesystem, git, python, docker, search, web, and archive capabilities.
 
 ## Design Goals
 
