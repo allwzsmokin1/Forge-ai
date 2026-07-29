@@ -5,6 +5,8 @@ from __future__ import annotations
 import threading
 import time
 
+import pytest
+
 from forge.agents.planner import Task
 from forge.orchestrator import TaskResult
 from forge.scheduler import (
@@ -38,12 +40,8 @@ def test_task_graph_rejects_cycles() -> None:
     task_a = build_task("task-a", 1, dependencies=("task-b",))
     task_b = build_task("task-b", 2, dependencies=("task-a",))
 
-    try:
+    with pytest.raises(ValueError, match="directed acyclic graph"):
         TaskGraph([task_a, task_b])
-    except ValueError as exc:
-        assert "directed acyclic graph" in str(exc)
-    else:  # pragma: no cover - defensive assertion
-        raise AssertionError("Expected cyclic task graph to be rejected")
 
 
 def test_scheduler_runs_independent_tasks_in_parallel() -> None:

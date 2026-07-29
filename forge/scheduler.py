@@ -165,8 +165,8 @@ class TaskScheduler:
                     allowed_retries = (
                         retry_policy.max_retries if task.max_retries is None else task.max_retries
                     )
-                    # `allowed_retries` tracks extra retries beyond the first execution attempt.
-                    if attempts[task_id] <= allowed_retries:
+                    max_attempts = allowed_retries + 1
+                    if attempts[task_id] < max_attempts:
                         states[task_id] = TASK_STATUS_QUEUED
                         if retry_policy.backoff_seconds:
                             time.sleep(retry_policy.backoff_seconds)
