@@ -8,13 +8,30 @@ Forge-AI uses a clean agent-based architecture with a shared abstract base class
 
 ```text
 forge/
-└── agents/
-    ├── __init__.py
+├── agents/
+│   ├── __init__.py
+│   ├── base.py
+│   ├── planner.py
+│   ├── coder.py
+│   ├── reviewer.py
+│   └── researcher.py
+├── runtime/
+│   ├── runtime_manager.py
+│   ├── registry.py
+│   ├── permissions.py
+│   ├── events.py
+│   ├── lifecycle.py
+│   └── dependency_injection.py
+└── tools/
     ├── base.py
-    ├── planner.py
-    ├── coder.py
-    ├── reviewer.py
-    └── researcher.py
+    ├── terminal.py
+    ├── filesystem.py
+    ├── git.py
+    ├── python.py
+    ├── docker.py
+    ├── search.py
+    ├── web.py
+    └── archive.py
 ```
 
 - `BaseAgent`: abstract contract for all agents.
@@ -22,6 +39,9 @@ forge/
 - `CoderAgent`: generates Python code, performs refactors, and explains code.
 - `ReviewerAgent`: reviews code, highlights issues, and returns severity levels.
 - `ResearchAgent`: gathers documentation, summarizes findings, and recommends best practices.
+- `ToolRuntimeManager`: central execution runtime handling permissions, retries, events, hooks, and metrics.
+- `ToolRegistry`: capability and plugin-based tool discovery for all agent tool access.
+- `forge.tools.*`: built-in tool ecosystem for terminal, filesystem, git, python, docker, search, web, and archive operations.
 
 ## Design Goals
 
@@ -39,6 +59,8 @@ The orchestrator coordinates the full workflow:
 3. Each task is dispatched to the most suitable registered agent.
 4. The orchestrator collects every task result into a structured execution report.
 5. Memory is loaded on startup, updated after every task, and saved before the run completes.
+
+All tool access is runtime-managed: agents request capabilities from the shared registry rather than calling subprocess or filesystem APIs directly.
 
 This flow is designed to be extensible: new agents can be registered with keywords without altering the orchestrator logic.
 

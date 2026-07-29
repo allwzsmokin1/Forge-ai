@@ -37,6 +37,12 @@ class ReviewerAgent(BaseAgent):
         The reviewer applies basic static heuristics to identify security risks,
         style issues, and opportunities for improvement.
         """
+        if kwargs.get("runtime_probe"):
+            self.request_tool(
+                tool="python",
+                capability="python.exec",
+                payload={"code": "print('runtime_probe')"},
+            )
         code = prompt.strip()
         if not code:
             return [

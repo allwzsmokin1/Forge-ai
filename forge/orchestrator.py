@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from .agents import BaseAgent, CoderAgent, PlannerAgent, ResearchAgent, ReviewerAgent, Task
 from .logger import logger
 from .memory import MemoryManager
+from .runtime import ToolRuntimeManager, get_default_runtime
 
 
 @dataclass(frozen=True)
@@ -50,11 +51,13 @@ class Orchestrator:
         self,
         logger_instance: Optional[logging.Logger] = None,
         memory_manager: Optional[MemoryManager] = None,
+        runtime: Optional[ToolRuntimeManager] = None,
         project_name: str = "ForgeAI",
         memory_path: Optional[str] = None,
     ) -> None:
         self._logger = logger_instance or logger
         self._agents: List[Tuple[Tuple[str, ...], BaseAgent]] = []
+        self._runtime = runtime or get_default_runtime()
         self._memory_manager = (
             memory_manager
             if memory_manager is not None
@@ -65,10 +68,14 @@ class Orchestrator:
 
     def _register_builtin_agents(self) -> None:
         """Register the built-in agents with default keyword matching."""
-        self.register_agent(PlannerAgent(), keywords=("plan", "task", "goal", "feature"))
-        self.register_agent(CoderAgent(), keywords=("code", "coding", "implement", "write"))
-        self.register_agent(ReviewerAgent(), keywords=("review", "bug", "quality"))
-        self.register_agent(ResearchAgent(), keywords=("research", "docs", "documentation"))
+        self.register_agent(PlannerAgent(runtime=self._runtime), keywords=("plan", "task", "goal", "feature"))
+        self.register_agent(
+            CoderAgent(runtime=self._runtime), keywords=("code", "coding", "implement", "write")
+        )
+        self.register_agent(ReviewerAgent(runtime=self._runtime), keywords=("review", "bug", "quality"))
+        self.register_agent(
+            ResearchAgent(runtime=self._runtime), keywords=("research", "docs", "documentation")
+        )
 
     def register_agent(self, agent: BaseAgent, keywords: Sequence[str]) -> None:
         """Register an agent with one or more keywords for dispatching.

@@ -38,6 +38,12 @@ class PlannerAgent(BaseAgent):
         The planner uses simple heuristics to split goals into ordered tasks and
         to assign priority based on keyword cues.
         """
+        if kwargs.get("runtime_probe"):
+            self.request_tool(
+                tool="filesystem",
+                capability="filesystem.list",
+                payload={"operation": "list", "path": "."},
+            )
         goal = prompt.strip()
         if not goal:
             return []

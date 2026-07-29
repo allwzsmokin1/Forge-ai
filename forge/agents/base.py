@@ -5,6 +5,8 @@ from __future__ import annotations
 import abc
 from typing import Any
 
+from ..runtime import ToolExecutionRequest, ToolExecutionResult, ToolRuntimeManager, get_default_runtime
+
 
 class BaseAgent(abc.ABC):
     """Abstract base class for Forge-AI agents.
@@ -36,3 +38,23 @@ class BaseAgent(abc.ABC):
             A structured result value from the agent.
         """
         raise NotImplementedError
+
+    def request_tool(
+        self,
+        *,
+        tool: str,
+        capability: str,
+        payload: dict[str, Any] | None = None,
+        retries: int = 0,
+    ) -> ToolExecutionResult:
+        """Request a runtime-managed tool capability."""
+        request = ToolExecutionRequest(
+            tool=tool,
+            capability=capability,
+            agent=self.name,
+            payload=payload or {},
+            retries=retries,
+        )
+        return self.runtime.execute(request)
+    def __init__(self, runtime: ToolRuntimeManager | None = None) -> None:
+        self.runtime = runtime or get_default_runtime()

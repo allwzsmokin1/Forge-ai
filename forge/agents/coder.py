@@ -45,6 +45,13 @@ class CoderAgent(BaseAgent):
             return CodeArtifact(code="", explanation="No code request was provided.")
 
         lower_request = request.lower()
+        if kwargs.get("runtime_probe"):
+            self.request_tool(
+                tool="search",
+                capability="search.text",
+                payload={"root": ".", "pattern": str(kwargs["runtime_probe"]), "glob": "README.md"},
+            )
+
         if "refactor" in lower_request:
             return self._refactor_code(request)
         if "explain" in lower_request:
