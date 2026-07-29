@@ -76,7 +76,7 @@ def test_provider_registry_set_default_supports_registered_provider() -> None:
 
 
 def test_coder_agent_uses_selected_provider() -> None:
-    original_provider = registry.get()
+    original_provider_name = registry.get().name
     provider = StaticProvider(
         "coder-test",
         "CODE:\ndef custom() -> str:\n    return 'ok'\nEXPLANATION:\nCustom response",
@@ -87,14 +87,14 @@ def test_coder_agent_uses_selected_provider() -> None:
     try:
         result = CoderAgent().run("Write something")
     finally:
-        registry.set_default(original_provider.name)
+        registry.set_default(original_provider_name)
 
     assert result.code == "def custom() -> str:\n    return 'ok'"
     assert result.explanation == "Custom response"
 
 
 def test_coder_agent_handles_unstructured_provider_response() -> None:
-    original_provider = registry.get()
+    original_provider_name = registry.get().name
     provider = StaticProvider("coder-unstructured", "def fallback() -> str:\n    return 'ok'")
     registry.register(provider)
     registry.set_default(provider.name)
@@ -102,14 +102,14 @@ def test_coder_agent_handles_unstructured_provider_response() -> None:
     try:
         result = CoderAgent().run("Write something")
     finally:
-        registry.set_default(original_provider.name)
+        registry.set_default(original_provider_name)
 
     assert result.code == "def fallback() -> str:\n    return 'ok'"
     assert result.explanation == ""
 
 
 def test_research_agent_uses_selected_provider() -> None:
-    original_provider = registry.get()
+    original_provider_name = registry.get().name
     provider = StaticProvider(
         "research-test",
         "FINDINGS:\nCustom findings\nRECOMMENDATIONS:\nCustom recommendations",
@@ -120,7 +120,7 @@ def test_research_agent_uses_selected_provider() -> None:
     try:
         result = ResearchAgent().run("Async patterns")
     finally:
-        registry.set_default(original_provider.name)
+        registry.set_default(original_provider_name)
 
     assert result.topic == "Async patterns"
     assert result.findings == "Custom findings"
@@ -128,7 +128,7 @@ def test_research_agent_uses_selected_provider() -> None:
 
 
 def test_research_agent_handles_unstructured_provider_response() -> None:
-    original_provider = registry.get()
+    original_provider_name = registry.get().name
     provider = StaticProvider("research-unstructured", "Fallback research guidance")
     registry.register(provider)
     registry.set_default(provider.name)
@@ -136,7 +136,7 @@ def test_research_agent_handles_unstructured_provider_response() -> None:
     try:
         result = ResearchAgent().run("Async patterns")
     finally:
-        registry.set_default(original_provider.name)
+        registry.set_default(original_provider_name)
 
     assert result.topic == "Async patterns"
     assert result.findings == "Fallback research guidance"
