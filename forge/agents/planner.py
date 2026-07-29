@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from hashlib import sha1
+from hashlib import blake2s
 from typing import Any
 
 from .base import BaseAgent
@@ -123,5 +123,5 @@ class PlannerAgent(BaseAgent):
         return "general"
 
     def _build_task_id(self, title: str, order: int) -> str:
-        digest = sha1(f"{order}:{title}".encode()).hexdigest()[:12]
+        digest = blake2s(f"{order}:{title}".encode(), digest_size=6).hexdigest()
         return f"task-{order:02d}-{digest}"

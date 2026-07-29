@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
+from types import MappingProxyType
 
 from .agents import Task
 
@@ -44,8 +45,8 @@ class TaskGraph:
         self._validate_acyclic()
 
     @property
-    def tasks(self) -> dict[str, Task]:
-        return dict(self._tasks)
+    def tasks(self) -> Mapping[str, Task]:
+        return MappingProxyType(self._tasks)
 
     def ready_tasks(self, completed: Iterable[str], pending: Iterable[str]) -> list[Task]:
         completed_set = set(completed)
