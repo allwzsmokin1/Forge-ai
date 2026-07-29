@@ -1,7 +1,26 @@
 """Tests for the Forge-AI LLM provider system."""
 
-from forge.llm import ProviderRegistry, MockLLMProvider, registry
+from forge.agents.coder import CoderAgent
+from forge.agents.researcher import ResearchAgent
+from forge.llm import LLMProvider, MockLLMProvider, ProviderRegistry, registry
 from forge.llm.providers import LLMResponse
+
+
+class StaticProvider(LLMProvider):
+    def __init__(self, name: str, text: str) -> None:
+        self._name = name
+        self._text = text
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def description(self) -> str:
+        return "Static test provider."
+
+    def generate(self, prompt: str, **kwargs: object) -> LLMResponse:
+        return LLMResponse(text=self._text, metadata={"prompt": prompt, **kwargs})
 
 
 def test_mock_provider_generates_code_response() -> None:
@@ -44,3 +63,50 @@ def test_provider_registry_falls_back_to_default_unknown_provider() -> None:
     local_registry = ProviderRegistry()
 
     assert local_registry.get("unknown").name == "mock"
+
+
+def test_provider_registry_set_default_supports_registered_provider() -> None:
+    local_registry = ProviderRegistry()
+    provider = StaticProvider("static", "CODE:\npass\nEXPLANATION:\ncustom")
+    local_registry.register(provider)
+
+    local_registry.set_default("static")
+
+    assert local_registry.get() is provider
+
+
+def test_coder_agent_uses_selected_provider() -> None:
+    original_provider = registry.get()
+    provider = StaticProvider(
+        "coder-test",
+        "CODE:\ndef custom() -> str:\n    return 'ok'\nEXPLANATION:\nCustom response",
+    )
+    registry.register(provider)
+    registry.set_default(provider.name)
+
+    try:
+        result = CoderAgent().run("Write something")
+    finally:
+        registry.set_default(original_provider.name)
+
+    assert result.code == "def custom() -> str:\n    return 'ok'"
+    assert result.explanation == "Custom response"
+
+
+def test_research_agent_uses_selected_provider() -> None:
+    original_provider = registry.get()
+    provider = StaticProvider(
+        "research-test",
+        "FINDINGS:\nCustom findings\nRECOMMENDATIONS:\nCustom recommendations",
+    )
+    registry.register(provider)
+    registry.set_default(provider.name)
+
+    try:
+        result = ResearchAgent().run("Async patterns")
+    finally:
+        registry.set_default(original_provider.name)
+
+    assert result.topic == "Async patterns"
+    assert result.findings == "FINDINGS:\nCustom findings"
+    assert result.recommendations == "Custom recommendations"

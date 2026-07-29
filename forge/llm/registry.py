@@ -29,8 +29,8 @@ class ProviderRegistry:
         return tuple(self._providers.keys())
 
     def set_default(self, name: str) -> None:
-        provider = self.get(name)
-        if provider is self._default_provider:
+        provider = self._providers.get(name)
+        if provider is None:
             raise KeyError(f"Unknown provider: {name}")
         self._default_provider = provider
 
