@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import subprocess
 import time
 import uuid
 from collections.abc import Iterable
@@ -95,7 +96,7 @@ class ToolRuntimeManager:
 
                 self.metrics.record_failure(tool.name, elapsed)
                 last_error = RuntimeError(result.error or "Tool execution failed")
-            except Exception as exc:  # noqa: BLE001  # pragma: no cover - defensive
+            except (KeyError, OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
                 elapsed = time.perf_counter() - start
                 self.metrics.record_failure(request.tool, elapsed)
                 last_error = exc

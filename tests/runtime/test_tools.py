@@ -105,7 +105,7 @@ def test_web_tool_fetches_content(monkeypatch) -> None:
             return self
 
         def __exit__(self, exc_type, exc, tb) -> None:
-            return None
+            pass
 
     monkeypatch.setattr(
         "forge.tools.web.urlopen",

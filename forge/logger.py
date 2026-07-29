@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any
 
@@ -8,7 +9,8 @@ class StructuredFormatter(logging.Formatter):
         if runtime_event is None:
             return super().format(record)
         timestamp = self.formatTime(record, self.datefmt)
-        return f"{timestamp} runtime_event={runtime_event}"
+        event_payload = json.dumps(runtime_event, ensure_ascii=False).replace("\n", "\\n")
+        return f"{timestamp} runtime_event={event_payload}"
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

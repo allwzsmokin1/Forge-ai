@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 import shutil
 import subprocess
 from typing import Any
@@ -20,13 +21,17 @@ class TerminalTool(RuntimeTool):
         return ("terminal.execute",)
 
     def execute(self, payload: dict[str, Any], context: ToolContext) -> ToolExecutionResult:
-        command = str(payload.get("command", "")).strip()
-        if not command:
-            return ToolExecutionResult(success=False, error="Missing command")
+        args = payload.get("args")
+        if isinstance(args, list) and all(isinstance(arg, str) for arg in args):
+            command_args = args
+        else:
+            command = str(payload.get("command", "")).strip()
+            if not command:
+                return ToolExecutionResult(success=False, error="Missing command")
+            command_args = shlex.split(command)
 
         completed = subprocess.run(
-            command,
-            shell=True,
+            command_args,
             check=False,
             text=True,
             capture_output=True,
