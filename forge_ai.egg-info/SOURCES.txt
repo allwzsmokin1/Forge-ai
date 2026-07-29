@@ -8,12 +8,17 @@ forge/events.py
 forge/logger.py
 forge/orchestrator.py
 forge/plugins.py
+forge/scheduler.py
 forge/agents/__init__.py
 forge/agents/base.py
 forge/agents/coder.py
+forge/agents/debugger.py
+forge/agents/documentation.py
+forge/agents/git.py
 forge/agents/planner.py
 forge/agents/researcher.py
 forge/agents/reviewer.py
+forge/agents/tester.py
 forge/llm/__init__.py
 forge/llm/providers.py
 forge/llm/registry.py
@@ -28,3 +33,6 @@ forge_ai.egg-info/entry_points.txt
 forge_ai.egg-info/requires.txt
 forge_ai.egg-info/top_level.txt
 tests/test_llm_providers.py
+tests/test_phase3_memory.py
+tests/test_phase3_orchestrator.py
+tests/test_phase3_scheduler.py

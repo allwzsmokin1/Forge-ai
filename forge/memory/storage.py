@@ -7,9 +7,16 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
-from .models import ConversationMemory, MemoryEntry, ProjectMemory
+from .models import (
+    AgentDecision,
+    ConversationMemory,
+    FileMetadata,
+    MemoryEntry,
+    ProjectMemory,
+    TaskRecord,
+)
 
 
 class StorageBackend(ABC):
@@ -39,6 +46,11 @@ class JSONStorage(StorageBackend):
             "completed_tasks": [self._serialize_value(entry) for entry in memory.completed_tasks],
             "failed_tasks": [self._serialize_value(entry) for entry in memory.failed_tasks],
             "code_summaries": memory.code_summaries,
+            "task_history": [self._serialize_value(entry) for entry in memory.task_history],
+            "file_metadata": [self._serialize_value(entry) for entry in memory.file_metadata],
+            "agent_decisions": [self._serialize_value(entry) for entry in memory.agent_decisions],
+            "summaries": memory.summaries,
+            "task_dependencies": memory.task_dependencies,
             "conversation": {
                 "goal": memory.conversation.goal,
                 "project_goals": memory.conversation.project_goals,
@@ -51,10 +63,7 @@ class JSONStorage(StorageBackend):
 
     def _serialize_value(self, value: Any) -> Any:
         if dataclasses.is_dataclass(value):
-            return {
-                key: self._serialize_value(val)
-                for key, val in asdict(value).items()
-            }
+            return {key: self._serialize_value(val) for key, val in asdict(value).items()}
         if isinstance(value, dict):
             return {key: self._serialize_value(val) for key, val in value.items()}
         if isinstance(value, (list, tuple)):
@@ -74,6 +83,11 @@ class JSONStorage(StorageBackend):
             completed_tasks=[MemoryEntry(**entry) for entry in raw.get("completed_tasks", [])],
             failed_tasks=[MemoryEntry(**entry) for entry in raw.get("failed_tasks", [])],
             code_summaries=raw.get("code_summaries", []),
+            task_history=[TaskRecord(**entry) for entry in raw.get("task_history", [])],
+            file_metadata=[FileMetadata(**entry) for entry in raw.get("file_metadata", [])],
+            agent_decisions=[AgentDecision(**entry) for entry in raw.get("agent_decisions", [])],
+            summaries=raw.get("summaries", {}),
+            task_dependencies=raw.get("task_dependencies", {}),
             conversation=ConversationMemory(
                 goal=conversation_raw.get("goal", ""),
                 project_goals=conversation_raw.get("project_goals", []),
