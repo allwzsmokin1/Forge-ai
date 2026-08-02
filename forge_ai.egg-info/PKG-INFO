@@ -21,71 +21,131 @@ Requires-Dist: ruff; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Dynamic: license-file
 
-# Forge-ai
+# OrchestrAI
 
-Forge-AI is a modular multi-agent assistant platform designed for extensible software engineering workflows.
+> **An AI Operating Environment** — coordinates your AI coding tools so you don't have to.
 
-## Architecture
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12%2B-blue)](https://www.python.org/)
+[![Status](https://img.shields.io/badge/Status-Pre--Alpha-orange)](ROADMAP.md)
+[![Contributing](https://img.shields.io/badge/Contributions-Welcome-brightgreen)](CONTRIBUTING.md)
 
-Forge-AI uses a clean agent-based architecture with a shared abstract base class and specialized agents for planning, coding, reviewing, and researching.
+---
 
-```text
-forge/
-└── agents/
-    ├── __init__.py
-    ├── base.py
-    ├── planner.py
-    ├── coder.py
-    ├── reviewer.py
-    └── researcher.py
+## What Is OrchestrAI?
+
+OrchestrAI is **not** another coding assistant.
+
+It is an **AI Operating Environment** — a coordination layer that sits above tools like GitHub Copilot, OpenHands, Claude Code, and any other AI agent. It plans the work, preserves long-term project memory, and routes each task to the best available tool automatically.
+
+Think of it as a **Mission Director** for your AI toolkit.
+
+```
+┌─────────────────────────────────┐
+│           CLI (Typer)           │
+└────────────────┬────────────────┘
+                 │
+┌────────────────▼────────────────┐
+│       OrchestrAI Kernel         │
+│       Mission Director          │
+└────────────────┬────────────────┘
+                 │  TaskAdapter
+┌────────────────▼────────────────┐
+│     Shell integration (MVP)     │
+│   (+ more tools in Version 2)   │
+└─────────────────────────────────┘
 ```
 
-- `BaseAgent`: abstract contract for all agents.
-- `PlannerAgent`: decomposes user goals into ordered tasks with priority.
-- `CoderAgent`: generates Python code, performs refactors, and explains code.
-- `ReviewerAgent`: reviews code, highlights issues, and returns severity levels.
-- `ResearchAgent`: gathers documentation, summarizes findings, and recommends best practices.
+## Why OrchestrAI Exists
 
-## Design Goals
+Modern AI coding tools are powerful but isolated. Each has its own context, memory, and strengths. Developers waste time context-switching, re-explaining project history, and manually routing tasks.
 
-- Strong typing with Python 3.12+ support.
-- Dataclasses for structured results.
-- Google style docstrings and extensive inline comments.
-- Clean architecture for easy future extension.
+OrchestrAI solves this by providing:
 
-## Execution Flow
+- **Mission planning** — describe a goal; OrchestrAI decomposes it into ordered tasks.
+- **Persistent project memory** — decisions and history survive across sessions and across tools (Version 2+).
+- **Intelligent task routing** — route each task to the tool best suited for it (Version 2+).
+- **Tool agnosticism** — plug in any AI tool through a standardized adapter interface.
 
-The orchestrator coordinates the full workflow:
+## MVP Scope
 
-1. The user submits a goal.
-2. The planner decomposes the goal into ordered tasks.
-3. Each task is dispatched to the most suitable registered agent.
-4. The orchestrator collects every task result into a structured execution report.
-5. Memory is loaded on startup, updated after every task, and saved before the run completes.
+The current milestone (Milestone 1) ships one complete loop: **one goal, one worker**.
 
-This flow is designed to be extensible: new agents can be registered with keywords without altering the orchestrator logic.
+| Component | MVP | Version 2+ |
+|---|---|---|
+| Mission Director | ✅ | — |
+| Shell integration | ✅ | — |
+| CLI (`run`, `history`) | ✅ | — |
+| JSON run history | ✅ | — |
+| Memory Manager | — | ✅ |
+| Context Manager | — | ✅ |
+| Task Router | — | ✅ |
+| Web UI | — | ✅ |
+| Multi-tool integrations | — | ✅ |
 
-## Memory Architecture
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the complete list of deferred components and their rationale.
 
-Forge-AI maintains a persistent project memory layer that records task execution, failures, code summaries, goals, architecture decisions, and important files.
+## Core Principles
 
-```text
+| Principle | What it means in practice |
+|---|---|
+| **Reuse first** | Use mature open-source libraries before building anything custom. |
+| **Replaceable dependencies** | Every component can be swapped without rewriting the core. |
+| **Local-first** | Works fully offline; cloud services are optional enhancements. |
+| **MVP first** | Every milestone ships a working, usable system. |
+| **Simplicity over complexity** | No unnecessary abstractions; every layer earns its place. |
+
+## Repository Structure
+
+```
 forge/
-└── memory/
-    ├── __init__.py
-    ├── memory.py
-    ├── models.py
-    └── storage.py
+├── kernel/              # Mission Director only (MVP)
+├── integrations/        # Shell integration (MVP); more in V2+
+├── adapters/            # TaskAdapter interface (MVP); more in V2+
+├── ui/                  # CLI (MVP); web interface in V2+
+├── tests/               # All tests
+├── examples/            # Working usage examples
+└── docs/                # Full project documentation
 ```
 
-- `MemoryEntry`: captures task metadata, result, error, timestamp, and responsible agent.
-- `ConversationMemory`: stores conversation-specific goals, decisions, files, and entries.
-- `ProjectMemory`: aggregates completed/failed tasks, code summaries, and conversation state.
-- `MemoryManager`: provides add, search, recent, summary, save, and load operations.
-- `JSONStorage`: initial pluggable storage backend with JSON persistence.
+## Documentation
 
-The memory layer is designed so a SQL backend can replace JSON storage without changing the orchestrator or agent APIs.
+| Document | Purpose |
+|---|---|
+| [MISSION.md](MISSION.md) | Project purpose, non-goals, and long-term vision |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | MVP system design, deferred components, and data flows |
+| [REUSE_FIRST_BLUEPRINT.md](REUSE_FIRST_BLUEPRINT.md) | MVP and deferred dependency inventory |
+| [STACK_DECISIONS.md](STACK_DECISIONS.md) | Technology choices with alternatives considered |
+| [ROADMAP.md](ROADMAP.md) | Milestone plan from MVP to full release |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute, coding standards, review process |
 
-## Testing
+## Quick Start
 
-Pytest coverage exists for each agent, the orchestrator, and the memory layer, ensuring planning, code generation, review, research, persistence, and failure handling are exercised.
+> ⚠️ OrchestrAI is in pre-alpha. The interfaces described below reflect the planned MVP API and are not yet implemented.
+
+```bash
+# Install
+pip install orchestrai
+
+# Initialize a project
+orchestrai init
+
+# Run the Mission Director
+orchestrai run "Audit this codebase for TODO comments and generate a report"
+```
+
+## Current Status
+
+OrchestrAI is in **pre-alpha**. The current phase is repository foundation and architecture design. No production-ready components exist yet.
+
+See [ROADMAP.md](ROADMAP.md) for the full milestone plan.
+
+## Contributing
+
+OrchestrAI is designed from the ground up to be community-driven. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get involved.
+
+## License
+
+Apache 2.0 — see [LICENSE](LICENSE) for details.
+
+Apache 2.0 was chosen over MIT because it includes an explicit patent grant, which is important for a project that coordinates proprietary AI tools. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full rationale.
