@@ -1,2 +1,3 @@
 [console_scripts]
 forge = forge.cli:app
+orchestrai = forge.cli:app

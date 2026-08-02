@@ -14,6 +14,12 @@ forge/agents/coder.py
 forge/agents/planner.py
 forge/agents/researcher.py
 forge/agents/reviewer.py
+forge/kernel/__init__.py
+forge/kernel/director.py
+forge/kernel/execution_provider.py
+forge/kernel/mission_log.py
+forge/kernel/models.py
+forge/kernel/shell_provider.py
 forge/llm/__init__.py
 forge/llm/providers.py
 forge/llm/registry.py

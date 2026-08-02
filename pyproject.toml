@@ -23,6 +23,7 @@ dependencies =  [
 
 [project.scripts]
 forge = "forge.cli:app"
+orchestrai = "forge.cli:app"
 
 [project.optional-dependencies]
 dev = [
