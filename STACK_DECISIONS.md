@@ -1,6 +1,8 @@
 # Stack Decisions
 
-> This document records every significant technology choice made for OrchestrAI, the alternatives that were evaluated, and the reasoning behind each decision. It is a living document: when a decision is revisited, the new reasoning is added rather than replacing the old entry.
+> This document records every significant technology choice made for OrchestrAI, the alternatives evaluated, and the reasoning behind each decision.
+>
+> **MVP scope**: Decisions marked **[V2+]** are deferred — they are the right choice for a later milestone but add unnecessary complexity to the MVP.
 
 ---
 
@@ -9,14 +11,14 @@
 **Decision**: Python 3.12+ as the primary language.
 
 **Alternatives Evaluated**:
-- **TypeScript/Node.js**: Strong ecosystem for AI tooling (especially LLM SDKs), but the Python data science and ML ecosystem is unmatched, and most AI tool SDKs are Python-first.
-- **Go**: Excellent concurrency and distribution properties, but lacks the ML/AI library ecosystem. Would add complexity for integrations.
-- **Rust**: Performance benefits but steep onboarding curve. The bottleneck in OrchestrAI is LLM API latency, not CPU cycles.
+- **TypeScript/Node.js**: Strong AI tooling ecosystem, but Python is the language of AI-first SDKs.
+- **Go**: Excellent concurrency, but lacks the ML/AI library ecosystem.
+- **Rust**: Performance benefits, but steep onboarding curve and the bottleneck is LLM API latency, not CPU.
 
-**Reasoning**: The AI tooling ecosystem is Python-native. LLM SDKs, embedding libraries, and vector databases are all Python-first. Python 3.12 specifically provides performance improvements (up to 60% faster than 3.10 in some benchmarks) and cleaner type system improvements.
+**Reasoning**: The AI tooling ecosystem is Python-native. LLM SDKs, embedding libraries, and vector databases are Python-first. Python 3.12 adds meaningful performance improvements and cleaner type system features.
 
-**Constraints Applied**:
-- Minimum Python version is 3.12. No backports to older versions.
+**Constraints**:
+- Minimum Python version is 3.12. No backports.
 - All kernel code passes `mypy --strict`.
 - `ruff` enforces style and lint rules.
 
@@ -27,167 +29,118 @@
 **Decision**: Standard `pip` with `pyproject.toml` (PEP 517/518/621).
 
 **Alternatives Evaluated**:
-- **Poetry**: Good DX, but adds a non-standard lock file format and build system that complicates distribution.
-- **PDM**: Modern and standards-compliant, but adds another tool that contributors must learn.
-- **uv**: Extremely fast, standards-compliant, and increasingly popular. Actively considered as a future default.
-- **Conda**: Appropriate for scientific computing; overkill for a developer tooling project.
+- **Poetry**: Non-standard lock file format; complicates distribution.
+- **PDM**: Modern and standards-compliant, but adds a tool contributors must learn.
+- **uv**: Extremely fast and standards-compliant. Noted as a likely future upgrade.
+- **Conda**: Appropriate for scientific computing; overkill here.
 
-**Reasoning**: `pyproject.toml` is the Python standard. Using it with standard `pip` keeps the contributor barrier low — anyone who knows Python knows how to install the project. `uv` is noted as a likely future upgrade for faster installs in CI.
-
----
-
-## SD-003: HTTP Client — httpx
-
-**Decision**: `httpx` as the primary HTTP client for all outbound calls.
-
-**Alternatives Evaluated**:
-- **requests**: Synchronous only; does not support async workflows.
-- **aiohttp**: Async, but async-only; inconsistent API between sync and async modes.
-- **urllib3**: Too low-level for application code.
-
-**Reasoning**: `httpx` provides a consistent sync/async API, HTTPX/2 support, and is the standard complement to FastAPI (which is also built on Starlette/anyio). All outbound HTTP calls are wrapped behind interface methods so `httpx` can be replaced without changing callers.
+**Reasoning**: `pyproject.toml` is the Python standard. Using it with standard `pip` keeps the contributor barrier low.
 
 ---
 
-## SD-004: LLM Provider Abstraction — LiteLLM
+## SD-003: LLM Provider Abstraction — LiteLLM
 
 **Decision**: `litellm` as the provider-agnostic LLM interface.
 
 **Alternatives Evaluated**:
-- **Direct SDK calls** (openai, anthropic): Couples the kernel to specific providers; requires conditional logic for every provider.
-- **LangChain LLM wrappers**: LangChain is too heavyweight and introduces lock-in.
-- **Custom abstraction**: More work with equivalent outcomes; LiteLLM already exists and is mature.
+- **Direct SDK calls** (openai, anthropic): Couples the kernel to specific providers.
+- **LangChain LLM wrappers**: Too heavyweight; lock-in.
+- **Custom abstraction**: More work with equivalent outcomes; LiteLLM already exists.
 
-**Reasoning**: LiteLLM normalizes the API across OpenAI, Anthropic, Cohere, Replicate, Ollama, and others. It supports streaming, function calling, and usage tracking. It is lightweight (does not pull in the full LangChain stack). Wrapping it behind our own `LLMProvider` interface preserves the ability to replace it.
-
-**Constraint**: The kernel calls our `LLMProvider` interface, not LiteLLM directly. LiteLLM is an implementation detail of one `LLMProvider` implementation.
+**Reasoning**: LiteLLM normalizes the API across OpenAI, Anthropic, Cohere, Ollama, and others. It supports streaming, function calling, and usage tracking. It is lightweight. The kernel calls our own `LLMProvider` interface; LiteLLM is one implementation of it.
 
 ---
 
-## SD-005: Storage Layer — SQLAlchemy Core + SQLite (→ PostgreSQL)
+## SD-004: Storage — JSON Files (MVP) → SQLAlchemy + SQLite (V2+)
 
-**Decision**: SQLAlchemy Core (not ORM) with SQLite for development; PostgreSQL for production deployments.
+**MVP Decision**: Flat JSON files written to the project directory.
+
+**V2+ Decision**: SQLAlchemy Core (not ORM) with SQLite → PostgreSQL for team deployments.
+
+**Reasoning**: JSON requires no schema, no migrations, no external tooling, and is fully human-readable. It is the right choice when the only query needed is "show me the last N runs". SQLAlchemy + Alembic become necessary in Milestone 2 when semantic memory, cross-session queries, and team-shared storage are added.
 
 **Alternatives Evaluated**:
-- **Raw sqlite3**: Works for MVP, but migrations and query building become manual pain points.
-- **SQLAlchemy ORM**: Adds complexity for what is essentially key-value and document storage.
-- **Peewee**: Simpler than SQLAlchemy, but less portable and less maintained.
-- **TinyDB**: Pure Python, no SQL, suitable for tiny projects but not for the query complexity we anticipate.
-- **MongoDB**: Document store is appealing for memory storage, but adds a heavyweight server dependency.
-
-**Reasoning**: SQLAlchemy Core provides portable SQL without the ORM overhead. SQLite means zero external infrastructure for local development. The same code runs against PostgreSQL in production deployments by changing the connection string. Alembic handles schema migrations in both environments.
+- **Raw sqlite3**: Works, but migrations and query building become manual pain points at scale.
+- **SQLAlchemy ORM**: Adds complexity for what starts as key-value storage.
+- **TinyDB**: Suitable for tiny projects; not for the query complexity anticipated in V2+.
+- **MongoDB**: Heavyweight server dependency; violates local-first for MVP.
 
 ---
 
-## SD-006: Semantic Memory — ChromaDB (Optional)
-
-**Decision**: `chromadb` as the optional vector store for semantic memory search.
-
-**Alternatives Evaluated**:
-- **FAISS**: High performance, but no built-in persistence or query API; requires more wrapper code.
-- **Weaviate**: Feature-rich, but requires a separate server process.
-- **Pinecone**: Cloud-only; violates local-first principle.
-- **Qdrant**: Strong alternative; local-first, Rust-based. Actively reconsidered if Chroma's Python-heavy implementation becomes a performance concern.
-- **pgvector**: PostgreSQL extension; viable for teams already using PostgreSQL.
-
-**Reasoning**: ChromaDB is embedded (no separate server), open-source (Apache 2.0), and Python-native. It is suitable for local-first development and can be replaced by any of the above for production deployments. Semantic memory is an optional enhancement; the core system works without it.
-
----
-
-## SD-007: API Framework — FastAPI
-
-**Decision**: FastAPI for the optional web interface and programmatic API.
-
-**Alternatives Evaluated**:
-- **Flask**: Synchronous default; less ergonomic for modern async Python.
-- **Django REST Framework**: Too heavyweight for a tool that may not need a full web framework.
-- **Starlette**: FastAPI is built on Starlette; using Starlette directly provides no advantage.
-- **Litestar**: Strong alternative with excellent async support; considered for future re-evaluation.
-
-**Reasoning**: FastAPI provides automatic OpenAPI documentation, type validation through Pydantic, and excellent async support. It is the standard for modern Python APIs. The web interface is optional; the CLI is the primary interface.
-
----
-
-## SD-008: CLI Framework — Typer + Rich
+## SD-005: CLI Framework — Typer + Rich
 
 **Decision**: Typer for CLI structure; Rich for output formatting.
 
 **Alternatives Evaluated**:
 - **Click**: Typer is built on Click and adds type inference, reducing boilerplate.
-- **argparse**: Too verbose for the command surface we anticipate.
-- **docopt**: Deprecated in practice; unmaintained.
+- **argparse**: Too verbose for the command surface anticipated.
 - **Colorama**: Rich is a superset of Colorama's capabilities.
 
-**Reasoning**: Typer infers CLI arguments from Python type hints, eliminating repetitive decorator code. Rich provides tables, progress bars, syntax-highlighted output, and Markdown rendering in one library, which is exactly what a tool status interface needs.
+**Reasoning**: Typer infers CLI arguments from Python type hints, eliminating repetitive decorator code. Rich provides tables, progress bars, syntax-highlighted output, and Markdown rendering — exactly what a task execution interface needs.
 
 ---
 
-## SD-009: Testing — pytest Ecosystem
+## SD-006: Configuration — YAML + pydantic-settings
+
+**Decision**: YAML for config files; `pydantic-settings` for validation and env-var overrides.
+
+**Alternatives Evaluated**:
+- **TOML**: Less ambiguous than YAML. Strongly considered; YAML wins on familiarity with developer tooling (Docker Compose, GitHub Actions).
+- **JSON**: No comments; bad for human-edited config.
+- **Python files**: Executable config is a security risk.
+
+**Reasoning**: YAML is the most widely understood config format in the tooling space. Pydantic Settings integrates validation and env-var overrides in one step. The YAML Norway problem and type coercion issues are mitigated by loading everything through Pydantic.
+
+---
+
+## SD-007: Logging — structlog
+
+**Decision**: `structlog` for structured logging.
+
+**Alternatives Evaluated**:
+- **stdlib `logging`**: Works, but lacks structured context and JSON output without additional setup.
+
+**Reasoning**: `structlog` adds structured context and JSON output without replacing `logging`. JSON in production, human-readable in development. No meaningful additional complexity.
+
+---
+
+## SD-008: Testing — pytest Ecosystem
 
 **Decision**: pytest as the test runner with standard plugins.
 
 **Alternatives Evaluated**:
-- **unittest**: Requires more boilerplate; pytest is the community standard.
+- **unittest**: More boilerplate; pytest is the community standard.
 - **nose2**: Effectively deprecated.
-- **hypothesis**: Added as a property-testing complement, not a replacement.
 
-**Reasoning**: pytest is the de facto standard for Python testing. Its fixture system, parametrize decorator, and plugin ecosystem (pytest-asyncio, pytest-cov, pytest-mock) cover all of our testing needs. No alternative provides meaningful advantages.
+**Reasoning**: pytest's fixture system, parametrize decorator, and plugin ecosystem (pytest-asyncio, pytest-cov, pytest-mock) cover all testing needs.
 
 ---
 
-## SD-010: Linting and Formatting — Ruff + Black + Mypy
+## SD-009: Linting and Formatting — Ruff + Black + Mypy
 
 **Decision**: Ruff for linting and import sorting; Black for formatting; Mypy for type checking.
 
 **Alternatives Evaluated**:
-- **Flake8 + isort**: Ruff replaces both with a Rust-based implementation that runs 10-100x faster.
-- **Pylint**: More opinionated and slower than Ruff; most useful rules are covered by Ruff + Mypy.
-- **Pyright**: Considered as a complement or replacement to Mypy; both can run in CI.
+- **Flake8 + isort**: Ruff replaces both with a Rust-based implementation 10-100x faster.
+- **Pylint**: More opinionated and slower; most useful rules covered by Ruff + Mypy.
+- **Pyright**: Strong alternative to Mypy; can run as an optional second pass.
 
-**Reasoning**: Ruff + Black + Mypy is the emerging standard for modern Python projects. Ruff's speed makes it practical to run on every commit without slowing down development. Black is non-negotiable (zero configuration) and reduces formatting debates entirely.
-
----
-
-## SD-011: Configuration Format — YAML
-
-**Decision**: YAML for all configuration files.
-
-**Alternatives Evaluated**:
-- **TOML**: Strongly considered. Less ambiguous than YAML, native to `pyproject.toml`. Preferred for simple key-value config.
-- **JSON**: No comments; bad for human-edited config files.
-- **INI**: Too limited for nested configuration.
-- **Python files**: Executable config is a security risk in a tool that processes untrusted input.
-
-**Reasoning**: YAML is the most widely understood config format in the developer tooling space (Docker Compose, GitHub Actions, Kubernetes, Ansible). It handles nested structures naturally. The ambiguity issues (YAML Norway problem, type coercion) are mitigated by loading all config through `pydantic-settings` which validates and types all values.
-
-**Note**: `pyproject.toml` is used for Python package metadata (TOML); YAML is used for runtime configuration. These are different concerns and can coexist.
+**Reasoning**: Ruff + Black + Mypy is the emerging standard for modern Python projects. Ruff's speed makes it practical to run on every commit.
 
 ---
 
-## SD-012: Event System — In-Process Pub/Sub
+## Deferred Stack Decisions (V2+)
 
-**Decision**: A lightweight in-process event bus, implemented from scratch over a `threading.local`-backed callback registry.
+The following technology decisions are correct for the long term but are not needed for the MVP.
 
-**Alternatives Evaluated**:
-- **PyPubSub**: Adequate but unmaintained.
-- **Redis Pub/Sub**: Requires external infrastructure; violates local-first principle.
-- **Kafka**: Entirely disproportionate for the use case.
-- **asyncio events**: Viable; reconsidered if we move to a fully async kernel.
-
-**Reasoning**: OrchestrAI's event volume at MVP scale (a few dozen events per task execution) does not require a distributed message broker. A simple in-process event bus is sufficient, adds no infrastructure dependency, and can be replaced with a Redis-backed implementation for multi-process deployments later.
-
----
-
-## SD-013: Plugin Discovery — importlib.metadata Entry Points
-
-**Decision**: Python entry points (`importlib.metadata`) for plugin discovery.
-
-**Alternatives Evaluated**:
-- **Pluggy** (used by pytest): More ergonomic for complex plugin interfaces, but adds a dependency.
-- **stevedore**: More structured, but adds dependencies and complexity.
-- **Custom file-based discovery**: Fragile and non-standard.
-
-**Reasoning**: Entry points are the Python standard for plugin discovery. They are supported by all package managers and require no additional dependencies. For the complexity of OrchestrAI's plugin interface, stdlib entry points are sufficient. Pluggy can be introduced if the plugin interface grows complex enough to warrant it.
+| ID | Decision | Deferred Until | Reason |
+|---|---|---|---|
+| SD-D01 | **httpx** as the HTTP client | Milestone 3 | No outbound HTTP calls are needed in the MVP (Shell integration uses subprocess). httpx becomes necessary when the Claude Code or OpenHands integrations are added. |
+| SD-D02 | **FastAPI** for web interface | Milestone 5 | The web UI is a convenience layer over the CLI. Building it before the CLI is proven adds risk. FastAPI is still the right choice when the time comes. |
+| SD-D03 | **SQLAlchemy Core + Alembic** | Milestone 2 | JSON files are sufficient for single-developer run history. SQLAlchemy is needed when the Memory Manager requires cross-session queries and team-shared storage. |
+| SD-D04 | **ChromaDB** for semantic memory | Beyond 1.0 | Semantic search over task history improves context relevance but requires an embedding model and vector store. Not needed until semantic memory is a roadmap feature. |
+| SD-D05 | **In-process Event Bus** | Milestone 2 | With one synchronous CLI workflow, direct function calls are simpler. An event bus becomes useful when the web UI needs real-time updates and the audit log needs to observe every component. |
+| SD-D06 | **importlib.metadata Plugin System** | Milestone 6 | Plugin discovery requires a stable adapter interface API and a mature community. Both are Version 3+ concerns. |
 
 ---
 
@@ -197,14 +150,16 @@
 |---|---|---|---|
 | SD-001 | 2026-08 | Active | Python 3.12+ |
 | SD-002 | 2026-08 | Active | pip + pyproject.toml |
-| SD-003 | 2026-08 | Active | httpx |
-| SD-004 | 2026-08 | Active | LiteLLM |
-| SD-005 | 2026-08 | Active | SQLAlchemy Core + SQLite |
-| SD-006 | 2026-08 | Active | ChromaDB (optional) |
-| SD-007 | 2026-08 | Active | FastAPI |
-| SD-008 | 2026-08 | Active | Typer + Rich |
-| SD-009 | 2026-08 | Active | pytest |
-| SD-010 | 2026-08 | Active | Ruff + Black + Mypy |
-| SD-011 | 2026-08 | Active | YAML config |
-| SD-012 | 2026-08 | Active | In-process event bus |
-| SD-013 | 2026-08 | Active | importlib.metadata entry points |
+| SD-003 | 2026-08 | Active | LiteLLM |
+| SD-004 | 2026-08 | Active (MVP: JSON; V2+: SQLAlchemy+SQLite) | Storage |
+| SD-005 | 2026-08 | Active | Typer + Rich |
+| SD-006 | 2026-08 | Active | YAML + pydantic-settings |
+| SD-007 | 2026-08 | Active | structlog |
+| SD-008 | 2026-08 | Active | pytest |
+| SD-009 | 2026-08 | Active | Ruff + Black + Mypy |
+| SD-D01 | 2026-08 | Deferred (Milestone 3) | httpx |
+| SD-D02 | 2026-08 | Deferred (Milestone 5) | FastAPI |
+| SD-D03 | 2026-08 | Deferred (Milestone 2) | SQLAlchemy + Alembic |
+| SD-D04 | 2026-08 | Deferred (Beyond 1.0) | ChromaDB |
+| SD-D05 | 2026-08 | Deferred (Milestone 2) | In-process Event Bus |
+| SD-D06 | 2026-08 | Deferred (Milestone 6) | Plugin System |

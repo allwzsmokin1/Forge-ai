@@ -1,8 +1,8 @@
 # Reuse-First Blueprint
 
 > **Core Principle**: Build only what makes OrchestrAI unique. For everything else, use the best available open-source library.
-
-This document catalogs every open-source component that OrchestrAI reuses, the rationale for choosing it, the alternatives that were evaluated, and the conditions under which we would replace it.
+>
+> **MVP scope**: This document is organized into **MVP dependencies** (required for Milestone 1) and **deferred dependencies** (needed in V2+ but not now). The MVP dependency list is intentionally short.
 
 ---
 
@@ -18,114 +18,99 @@ Before building any piece of OrchestrAI, the team asks these questions in order:
 
 ---
 
-## Component Inventory
+## MVP Dependencies (Milestone 1)
+
+These are the only dependencies needed to ship `orchestrai run "<goal>"`.
 
 ### Task Planning and Decomposition
 
-| Concern | Reused Component | Alternative Considered | Decision |
-|---|---|---|---|
-| Task graph modeling | Python `dataclasses` + `typing` | Pydantic | stdlib first; Pydantic added only if validation complexity warrants it |
-| Task prioritization | Built-in `heapq` | Third-party priority queue | stdlib is sufficient for MVP |
-| Dependency resolution | `graphlib` (stdlib, Python 3.9+) | NetworkX | stdlib covers DAG resolution; NetworkX only if cycle detection or layout visualization is needed |
+| Concern | Reused Component | Decision |
+|---|---|---|
+| Task graph modeling | Python `dataclasses` + `typing` | stdlib first; upgrade to Pydantic if validation complexity warrants it |
+| Task prioritization | Built-in `list` (ordered) | An ordered list is sufficient for MVP; `heapq` added only if priority queues are needed |
+| Dependency resolution | `graphlib` (stdlib, Python 3.9+) | stdlib covers DAG resolution; NetworkX only if cycle detection or layout visualization is needed |
 
-**What we do NOT reuse here**: The Mission Director logic itself. The rules for decomposing a natural-language goal into a task DAG are OrchestrAI's core differentiator and must be built.
+**What we do NOT reuse here**: The Mission Director logic. The rules for decomposing a natural-language goal into a task list are OrchestrAI's core differentiator.
 
 ---
 
 ### Language Model Interaction
 
-| Concern | Reused Component | Alternative Considered | Decision |
-|---|---|---|---|
-| OpenAI-compatible API calls | `openai` Python SDK | Raw `httpx` | Official SDK reduces maintenance burden |
-| Anthropic API calls | `anthropic` Python SDK | Raw `httpx` | Official SDK |
-| Local model inference | `ollama` client | `llama-cpp-python` | Ollama handles model lifecycle; we call its API |
-| LLM abstraction layer | `litellm` | LangChain, custom | LiteLLM is lightweight, provider-agnostic, and has no framework lock-in |
-| Prompt templating | `jinja2` | f-strings, LangChain | Jinja2 is mature, testable, and separates prompts from code |
+| Concern | Reused Component | Decision |
+|---|---|---|
+| LLM abstraction layer | `litellm` | Provider-agnostic, lightweight, no framework lock-in |
+| Prompt templating | `jinja2` | Mature, testable, separates prompts from code |
 
-**Why not LangChain?** LangChain provides more than we need, locks in abstractions we cannot control, and has a history of breaking changes. LiteLLM covers the provider-normalization use case without the overhead.
+**Why not LangChain?** LangChain provides more than we need, creates lock-in, and has a history of breaking changes. LiteLLM covers provider normalization without the overhead.
 
 ---
 
-### Memory and Storage
+### Storage (MVP: JSON)
 
-| Concern | Reused Component | Alternative Considered | Decision |
-|---|---|---|---|
-| In-process object model | Python `dataclasses` | Pydantic, attrs | stdlib for simplicity; upgrade path to Pydantic if JSON schema export is needed |
-| JSON persistence (MVP) | `json` (stdlib) | `orjson` | stdlib for MVP; `orjson` can replace without API changes |
-| Relational storage | `SQLAlchemy` (Core, not ORM) | raw `sqlite3`, Peewee | SQLAlchemy Core is portable across backends; ORM avoided to keep models simple |
-| Schema migrations | `Alembic` | Manual SQL scripts | Alembic is the standard complement to SQLAlchemy |
-| Semantic search over memory | `chromadb` (optional) | Weaviate, Pinecone, FAISS | Chroma is local-first, embeddable, and Apache 2.0 licensed |
-| Full-text search | `sqlite-fts5` (built into SQLite) | Elasticsearch | Local-first; FTS5 is sufficient for project-scale memory |
-
----
-
-### Context Window Management
-
-| Concern | Reused Component | Alternative Considered | Decision |
-|---|---|---|---|
-| Token counting | `tiktoken` (OpenAI) | Model-specific tokenizers | `tiktoken` covers GPT models; Anthropic and others provide their own; abstracted behind a `count_tokens()` interface |
-| Text splitting for chunking | `langchain_text_splitters` (isolated) | Custom regex splitter | The text splitter is the only LangChain component we pull in; it is isolated behind an interface |
-
----
-
-### Web Interface (Optional)
-
-| Concern | Reused Component | Alternative Considered | Decision |
-|---|---|---|---|
-| HTTP framework | `FastAPI` | Flask, Starlette | FastAPI provides automatic OpenAPI docs and type validation out of the box |
-| ASGI server | `uvicorn` | Hypercorn, Gunicorn | `uvicorn` is the standard FastAPI server |
-| WebSocket (live updates) | FastAPI WebSocket support | Socket.IO | Built-in; no additional dependency |
+| Concern | Reused Component | Decision |
+|---|---|---|
+| Run history persistence | `json` (stdlib) | Flat JSON file; zero infrastructure required for MVP |
+| In-process object model | Python `dataclasses` | stdlib for simplicity |
 
 ---
 
 ### CLI
 
-| Concern | Reused Component | Alternative Considered | Decision |
-|---|---|---|---|
-| CLI framework | `Typer` | Click, argparse | Typer is built on Click, adds type inference, and produces help text automatically |
-| Terminal output | `Rich` | Colorama, termcolor | Rich provides tables, progress bars, and syntax highlighting in one library |
+| Concern | Reused Component | Decision |
+|---|---|---|
+| CLI framework | `Typer` | Built on Click, adds type inference, produces help text automatically |
+| Terminal output | `Rich` | Tables, progress bars, and syntax highlighting in one library |
 
 ---
 
 ### Configuration
 
-| Concern | Reused Component | Alternative Considered | Decision |
-|---|---|---|---|
-| Config file format | YAML via `PyYAML` | TOML, INI | YAML is human-friendly and widely understood; TOML considered but YAML wins on familiarity |
-| Environment variable override | `python-dotenv` | `os.environ` directly | `python-dotenv` handles `.env` files cleanly for local development |
-| Config validation | `pydantic-settings` | Manual validation | Pydantic Settings integrates validation and env-var override in one step |
+| Concern | Reused Component | Decision |
+|---|---|---|
+| Config file format | YAML via `PyYAML` | Human-friendly, widely understood |
+| Environment variable override | `python-dotenv` | Handles `.env` files cleanly for local development |
+| Config validation | `pydantic-settings` | Validation and env-var override in one step |
 
 ---
 
-### Plugin System
+### Logging
 
-| Concern | Reused Component | Alternative Considered | Decision |
-|---|---|---|---|
-| Plugin discovery | `importlib.metadata` entry points (stdlib) | Pluggy, stevedore | stdlib is sufficient; no additional dependency needed |
+| Concern | Reused Component | Decision |
+|---|---|---|
+| Structured logging | `structlog` | Adds structured context and JSON output without replacing stdlib `logging` |
 
 ---
 
 ### Testing
 
-| Concern | Reused Component | Alternative Considered | Decision |
-|---|---|---|---|
-| Test runner | `pytest` | unittest | Pytest is the standard for modern Python projects |
-| Mocking | `unittest.mock` (stdlib) | `pytest-mock` | stdlib is sufficient; `pytest-mock` added only if fixture integration is needed |
-| HTTP mocking | `respx` | `responses`, `httpretty` | `respx` integrates cleanly with `httpx` |
-| Async test support | `pytest-asyncio` | `anyio` | Standard complement to async Python code |
-| Coverage | `coverage` + `pytest-cov` | — | Standard combination |
-| Static analysis | `ruff` | Flake8, Pylint | Ruff replaces Flake8, isort, and many Pylint rules in one fast tool |
-| Type checking | `mypy` | Pyright | Mypy is the reference implementation; Pyright as an optional second pass |
-| Formatting | `black` | autopep8, YAPF | Black is the de facto Python formatter |
+| Concern | Reused Component | Decision |
+|---|---|---|
+| Test runner | `pytest` | Community standard |
+| Mocking | `unittest.mock` (stdlib) | stdlib is sufficient; `pytest-mock` added only if fixture integration is needed |
+| Async test support | `pytest-asyncio` | Standard complement to async Python code |
+| Coverage | `coverage` + `pytest-cov` | Standard combination |
+| Static analysis | `ruff` | Replaces Flake8, isort, and many Pylint rules |
+| Type checking | `mypy` | Reference implementation |
+| Formatting | `black` | De facto Python formatter |
 
 ---
 
-### Logging and Observability
+## Deferred Dependencies (V2+)
 
-| Concern | Reused Component | Alternative Considered | Decision |
-|---|---|---|---|
-| Structured logging | `structlog` | stdlib `logging` | `structlog` adds structured context and JSON output without replacing `logging` |
-| Tracing (optional, future) | `opentelemetry-sdk` | Jaeger client | OpenTelemetry is the vendor-neutral standard |
+The following components are needed for later milestones but are explicitly excluded from the MVP. Adding them before they are needed increases complexity and dependency surface without delivering value.
+
+| Component | Deferred Until | Reason |
+|---|---|---|
+| `httpx` | Milestone 3 | No outbound HTTP calls in the MVP. The Shell integration uses subprocess. httpx becomes necessary when HTTP-based integrations (Claude Code, OpenHands) are added. |
+| `SQLAlchemy` Core | Milestone 2 | Relational storage is needed when cross-session queries, team-shared memory, and schema migrations are required. JSON is sufficient for MVP run history. |
+| `Alembic` | Milestone 2 | Schema migrations are only needed when SQLAlchemy is introduced. |
+| `chromadb` | Beyond 1.0 | Semantic search over task history requires an embedding model and vector store. Not needed until the Memory Manager gains semantic search capability. |
+| `tiktoken` | Milestone 2 | Token counting is only needed when the Context Manager must stay within a tool's context window budget. Not needed in the MVP (the goal string is the only context). |
+| `langchain_text_splitters` | Milestone 2 | Text splitting for context chunking is part of the Context Manager, which is a Milestone 2 deliverable. |
+| `FastAPI` + `uvicorn` | Milestone 5 | The web interface is a convenience layer over the CLI. Not needed until team features and task timeline visualization are required. |
+| `opentelemetry-sdk` | Milestone 5 | Tracing and metrics are valuable when running OrchestrAI as a persistent service. A local CLI tool does not need distributed observability. |
+| `importlib.metadata` entry points (plugin system) | Milestone 6 | Plugin discovery requires a stable adapter interface API and a mature community — both are Milestone 6+ concerns. |
+| `openai` / `anthropic` SDKs (direct) | Milestone 3 | LiteLLM abstracts these for MVP. Direct SDK usage is only needed if LiteLLM's abstraction proves insufficient for a specific integration. |
 
 ---
 
@@ -136,11 +121,10 @@ Each reused component has defined conditions under which we would replace it:
 | Component | Replace if... |
 |---|---|
 | `litellm` | It introduces breaking changes frequently or adds significant overhead to the dependency tree |
-| `chromadb` | Query latency becomes unacceptable at project scale or licensing changes |
-| `SQLAlchemy` | The project moves to an async-only stack where SQLAlchemy's async support proves insufficient |
-| `FastAPI` | A lighter alternative matures that provides equivalent OpenAPI generation with fewer dependencies |
+| `SQLAlchemy` (Milestone 2+) | The project moves to an async-only stack where SQLAlchemy's async support proves insufficient |
+| `FastAPI` (Milestone 5+) | A lighter alternative matures that provides equivalent OpenAPI generation with fewer dependencies |
 | `PyYAML` | Security vulnerabilities are discovered that cannot be patched promptly |
-| `tiktoken` | A model-agnostic token counting library matures enough to replace provider-specific tools |
+| `chromadb` (Beyond 1.0) | Query latency becomes unacceptable at project scale or licensing changes |
 
 ---
 
@@ -151,10 +135,10 @@ The following well-known libraries are **not used** in OrchestrAI, by deliberate
 | Library | Why Avoided |
 |---|---|
 | **LangChain** | Over-abstracts, frequent breaking changes, creates lock-in, covers far more scope than we need |
-| **LlamaIndex** | Same concerns as LangChain; we build only what we need |
-| **Celery** | Heavyweight distributed task queue; OrchestrAI is local-first and does not need distributed workers at MVP stage |
-| **Redis** | Runtime dependency that makes local-first development harder; can be added as an optional backend |
-| **Docker** (as a hard dependency) | Some users run OrchestrAI in constrained environments; Docker is optional for containerized deployments |
+| **LlamaIndex** | Same concerns as LangChain |
+| **Celery** | Heavyweight distributed task queue; OrchestrAI is local-first and single-process for MVP |
+| **Redis** | Runtime dependency; can be added as an optional backend in V2+ |
+| **Docker** (as a hard dependency) | Optional for containerized deployments; not required for local development |
 | **Kubernetes** | Premature complexity for the current stage |
 
 ---

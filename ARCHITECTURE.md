@@ -1,28 +1,27 @@
-# OrchestrAI Architecture
+# OrchestrAI Architecture — MVP
+
+> **Scope**: This document describes the MVP architecture only — the minimum required to run one goal with one worker. Components deferred to Version 2 or later are listed in the [Deferred Components](#deferred-components) section with their rationale.
 
 ## Overview
 
-OrchestrAI is structured as a layered system. The layers are strictly ordered: higher layers depend on lower layers, never the reverse. This constraint is enforced at the code level through module boundaries and is what makes individual components replaceable.
+The MVP is a three-layer system. A developer submits a goal on the CLI. The Mission Director decomposes it into ordered tasks and executes each one through the Shell integration. Results are printed back to the CLI.
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                        User Interfaces                        │
-│              CLI (Typer) · Web UI (optional) · API            │
-├──────────────────────────────────────────────────────────────┤
-│                      OrchestrAI Kernel                        │
-│         Mission Director · Task Router · Context Manager      │
-│                     Memory Manager                            │
-├──────────────────────────────────────────────────────────────┤
-│                     Adapter Layer                             │
-│    Standardized interfaces every integration must implement   │
-├──────────────────────────────────────────────────────────────┤
-│                   Integration Layer                           │
-│   Copilot · OpenHands · Claude Code · Codex · Custom tools   │
-├──────────────────────────────────────────────────────────────┤
-│                   Infrastructure Layer                        │
-│    Storage · Logging · Config · Event Bus · Plugin System    │
-└──────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│                  CLI (Typer + Rich)               │
+├──────────────────────────────────────────────────┤
+│               OrchestrAI Kernel                  │
+│              Mission Director only               │
+├──────────────────────────────────────────────────┤
+│          Infrastructure (Config · Logging · JSON) │
+└──────────────────────────────────────────────────┘
+         │
+  TaskAdapter interface
+         │
+  Shell integration (the one worker)
 ```
+
+Layers are strictly ordered: each layer only calls downward, never upward.
 
 ---
 
@@ -32,262 +31,179 @@ OrchestrAI is structured as a layered system. The layers are strictly ordered: h
 
 The foundation. Contains no business logic. Provides:
 
-- **Storage abstraction**: Key-value and document storage with pluggable backends (JSON → SQLite → PostgreSQL).
-- **Configuration**: File-based configuration using YAML with environment variable overrides.
-- **Logging**: Structured logging (JSON output in production, human-readable in development).
-- **Event Bus**: In-process publish/subscribe for decoupled communication between components.
-- **Plugin System**: Discovery and loading of external plugins without modifying core code.
+- **JSON storage**: Flat JSON files for run history and configuration. No database required for MVP.
+- **Configuration**: YAML file + environment variable overrides via `pydantic-settings`.
+- **Logging**: Structured logging via `structlog` (JSON in production, human-readable in development).
 
-No component in a higher layer calls storage or disk directly. All persistence goes through the storage abstraction.
+### Kernel — Mission Director
 
-### Integration Layer
+The only kernel component in the MVP. Responsible for:
 
-Concrete implementations of connections to external AI tools and services.
+1. Accepting a high-level developer goal as plain text.
+2. Calling an LLM (via LiteLLM) to decompose the goal into an ordered list of shell tasks.
+3. Iterating over the task list, executing each task through the Shell integration.
+4. Tracking task state: `pending → running → complete | failed`.
+5. Writing a JSON run record to disk on completion.
 
-Each integration is a self-contained Python package located in `integrations/<tool-name>/`. An integration knows how to:
-
-- Start and stop the tool.
-- Send a task to the tool.
-- Receive structured output from the tool.
-- Report capability metadata (what tasks this tool handles well).
-
-Integrations have **no direct dependencies on the kernel**. They communicate upward through the adapter interfaces only.
+The Mission Director does **not** route tasks, manage context windows, or maintain cross-session memory in the MVP. Those responsibilities are deferred.
 
 ### Adapter Layer
 
-The contract between integrations and the kernel.
-
-Every integration implements one or more adapter interfaces. The kernel depends only on these interfaces, never on concrete integrations. This is the dependency inversion boundary that makes OrchestrAI extensible.
-
-Core adapter interfaces:
+One interface in the MVP:
 
 ```
-TaskAdapter          - Execute a single task, return structured result
-ContextAdapter       - Read/write project context for a tool
-CapabilityAdapter    - Declare what this tool is good at
-LifecycleAdapter     - Start, stop, health-check a tool
+TaskAdapter    - Execute a single task, return a structured TaskResult
 ```
 
-### OrchestrAI Kernel
+`TaskResult` contains: `task_id`, `stdout`, `stderr`, `exit_code`, `duration_ms`.
 
-The core of the system. Contains the unique logic that makes OrchestrAI valuable.
+All other adapter interfaces (`ContextAdapter`, `CapabilityAdapter`, `LifecycleAdapter`) are deferred to Version 2 when a second integration is added.
 
-**Mission Director**
-Accepts a high-level developer goal and produces an ordered task plan. Manages task state (pending, running, complete, failed, retrying). Re-plans when tasks fail. Knows when a goal is complete.
+### Integration Layer — Shell
 
-**Task Router**
-Given a task and the registered capability metadata of available tools, selects the best tool for the job. Uses a scoring function that combines capability match, current tool availability, historical success rate, and cost estimate.
+One integration in the MVP: the **Shell integration**.
 
-**Context Manager**
-Maintains the active project context. Tracks:
-- The current goal and task plan.
-- Recent decisions and their rationale.
-- Key files and their summaries.
-- Architecture constraints and conventions.
-- Open questions and blockers.
+The Shell integration wraps any command-line program as a `TaskAdapter`. It receives a task description (a shell command string), executes it as a subprocess, captures stdout/stderr/exit code, and returns a `TaskResult`.
 
-The context manager is responsible for selecting what context to inject into each tool call, staying within token limits while maximizing relevance.
+This is the only "worker" in the MVP. All AI tool integrations (Copilot, OpenHands, Claude Code) are deferred to Version 2.
 
-**Memory Manager**
-Persists information that survives across sessions. Separate from the context manager (which is session-scoped). Stores:
-- Completed task history with outcomes.
-- Architecture decisions and their rationale (ADR format).
-- Code summaries for key modules.
-- Lessons learned and failure postmortems.
-- Team preferences and conventions.
+### User Interface — CLI
 
-### User Interface Layer
+One interface in the MVP:
 
-Thin wrappers that translate user input into kernel calls and kernel output into user-readable form.
+```bash
+orchestrai run "<goal>"      # Plan and execute a goal
+orchestrai history           # Show past run records from JSON store
+```
 
-**CLI** — built on Typer. The primary interface. All kernel capabilities are accessible from the command line.
-
-**Web UI** — optional. Provides a browser-based interface for developers who prefer visual interaction. Built on FastAPI + a minimal frontend. Not required for core functionality.
-
-**Programmatic API** — the kernel exposes a stable Python API. Third-party tools and scripts can drive OrchestrAI programmatically.
+Built on Typer + Rich. The web interface and programmatic API are deferred to Version 2.
 
 ---
 
-## Data Flows
-
-### Goal Execution Flow
+## Data Flow
 
 ```
-Developer Input
+Developer types: orchestrai run "Audit this codebase for TODOs"
       │
       ▼
-  CLI / API
-      │
-      ▼
-Mission Director
-  │  Decompose goal into tasks
-  │  Persist task plan to memory
-      │
-      ▼ (for each task)
-  Task Router
-  │  Score available tools against task
-  │  Select best match
-      │
-      ▼
-  Context Manager
-  │  Assemble relevant context slice
-  │  Respect token budget for selected tool
-      │
-      ▼
-  Adapter Interface
-      │
-      ▼
-  Integration (e.g., Claude Code)
-  │  Execute task with injected context
-  │  Return structured TaskResult
-      │
-      ▼
-  Context Manager
-  │  Update session context with result
-      │
-      ▼
-  Memory Manager
-  │  Persist result and any new decisions
+  CLI (Typer)
+  │  Parse goal string
+  │  Call Mission Director
       │
       ▼
   Mission Director
-  │  Update task plan state
-  │  Determine next task or goal completion
+  │  Call LiteLLM: "Decompose this goal into shell commands"
+  │  Receive ordered task list: [task_1, task_2, ...]
+  │  Write task plan to JSON store
+      │
+      ▼ (for each task)
+  TaskAdapter (Shell integration)
+  │  Run shell command as subprocess
+  │  Capture stdout, stderr, exit_code
+  │  Return TaskResult
       │
       ▼
-  CLI / API
+  Mission Director
+  │  Record result in JSON store
+  │  Mark task complete or failed
+  │  Move to next task or report completion
       │
       ▼
-Developer Output
+  CLI
+  │  Print Rich progress and final summary
+      │
+      ▼
+Developer sees result
 ```
-
-### Memory Read Flow
-
-When a new session starts or a new tool call is made, the Context Manager:
-
-1. Reads the session goal and active task from the Mission Director.
-2. Queries Memory Manager for relevant history (semantic search over past tasks and decisions).
-3. Queries Memory Manager for key file summaries.
-4. Assembles a ranked context slice that fits within the target tool's token budget.
-5. Passes the assembled context to the Task Router for injection.
 
 ---
 
 ## Key Design Decisions
 
-### Decision 1: Strict Layer Separation
+### Decision 1: Layer Separation
 
-Each layer only calls downward. The integration layer never calls the kernel. The kernel never calls the UI. This is enforced through import rules checked by the CI pipeline.
+Each layer calls only downward. The Shell integration never calls the kernel. The kernel never calls the CLI. Enforced by import rules in CI.
 
-**Why**: Prevents circular dependencies. Allows any layer to be replaced without breaking layers above or below.
+**Why**: Prevents circular dependencies. Allows any layer to be replaced.
 
-### Decision 2: Adapter Interfaces Are Stable Contracts
+### Decision 2: One Adapter Interface for MVP
 
-Once an adapter interface is published, it follows semantic versioning and breaking changes require a major version bump. Integrations that implement an adapter will not break on minor kernel upgrades.
+Only `TaskAdapter` exists in the MVP. Adding a second integration requires implementing this one interface and nothing more.
 
-**Why**: External contributors need confidence that their integrations will continue working. Without this guarantee, the integration ecosystem will not grow.
+**Why**: Every additional interface is a contract that must be maintained across all integrations. With one worker, `CapabilityAdapter`, `ContextAdapter`, and `LifecycleAdapter` add complexity without value.
 
-### Decision 3: Memory and Context Are Separate
+### Decision 3: JSON Storage for MVP
 
-Session context (what's happening right now) is separate from project memory (what has happened over time). The context manager is stateful per session and discarded when the session ends. The memory manager is persistent.
+Task history is written to a flat JSON file in the project directory. No database.
 
-**Why**: Session context must be fast and in-memory for low latency. Project memory must be durable and queryable. Different access patterns require different implementations.
-
-### Decision 4: Event Bus for Cross-Component Communication
-
-Components emit events (TaskStarted, TaskCompleted, TaskFailed, ContextUpdated) on the event bus rather than calling each other directly. Components subscribe to events they care about.
-
-**Why**: Reduces coupling between kernel components. Enables future features like real-time UI updates, audit logging, and monitoring without modifying core components.
-
-### Decision 5: Plugin System for Third-Party Extensions
-
-OrchestrAI provides a plugin discovery mechanism (entry points via `importlib.metadata`) so third-party packages can register new integrations, adapters, and even kernel extensions without modifying the OrchestrAI codebase.
-
-**Why**: An open-source project grows through community contributions. Making extension easy without requiring forks is essential for ecosystem growth.
+**Why**: SQLite and PostgreSQL are the right choice when multiple sessions, multiple users, or complex queries are needed. For MVP (single developer, single session history), JSON is simpler, more transparent, and requires no migration tooling.
 
 ---
 
 ## File and Module Structure
 
 ```
-orchestrai/
+forge/                        # Package root (current repo name)
 ├── kernel/
 │   ├── __init__.py
-│   ├── director.py          # Mission Director
-│   ├── router.py            # Task Router
-│   ├── context.py           # Context Manager
-│   ├── memory/
-│   │   ├── __init__.py
-│   │   ├── manager.py       # Memory Manager interface
-│   │   ├── models.py        # Memory data models
-│   │   └── backends/        # Storage backend implementations
-│   │       ├── json.py
-│   │       └── sqlite.py
-│   └── events.py            # Event Bus
+│   ├── director.py           # Mission Director
+│   └── config.py             # Config loading (pydantic-settings)
 │
 ├── adapters/
 │   ├── __init__.py
-│   ├── task.py              # TaskAdapter interface
-│   ├── context.py           # ContextAdapter interface
-│   ├── capability.py        # CapabilityAdapter interface
-│   └── lifecycle.py         # LifecycleAdapter interface
+│   └── task.py               # TaskAdapter interface + TaskResult model
 │
 ├── integrations/
 │   ├── __init__.py
-│   ├── copilot/             # GitHub Copilot integration
-│   ├── openhands/           # OpenHands integration
-│   ├── claude_code/         # Claude Code integration
-│   └── shell/               # Generic shell command integration
+│   └── shell/                # Shell integration (the one worker)
+│       ├── __init__.py
+│       └── adapter.py
 │
 ├── ui/
-│   ├── cli/
-│   │   ├── __init__.py
-│   │   └── main.py          # Typer CLI entry point
-│   └── web/
+│   └── cli/
 │       ├── __init__.py
-│       └── app.py           # FastAPI web interface (optional)
+│       └── main.py           # Typer CLI entry point
 │
 ├── tests/
 │   ├── unit/
-│   ├── integration/
-│   └── e2e/
+│   └── integration/
 │
-├── examples/
-│   ├── basic_goal/
-│   └── multi_tool_workflow/
-│
-└── docs/
-    ├── index.md
-    ├── quickstart.md
-    ├── kernel/
-    ├── adapters/
-    ├── integrations/
-    └── contributing/
+└── examples/
+    └── basic_goal/
 ```
 
 ---
 
 ## Architectural Constraints
 
-These constraints are non-negotiable. Proposals that violate them require an architecture review.
-
 1. **No circular imports** — enforced by CI.
-2. **Kernel has no direct knowledge of any specific integration** — the kernel sees only adapter interfaces.
-3. **All disk I/O goes through the storage abstraction** — no raw `open()` calls outside the storage layer.
-4. **All configuration goes through the config module** — no hardcoded values.
-5. **All external HTTP calls are behind an interface** — to allow mocking in tests and replacement in production.
-6. **Every public API is typed** — `mypy --strict` must pass for all kernel code.
+2. **Kernel has no direct imports from `integrations/`** — the kernel sees only `TaskAdapter`.
+3. **All configuration goes through `kernel/config.py`** — no hardcoded values.
+4. **Every public API is typed** — `mypy --strict` must pass for kernel and adapter code.
 
 ---
 
-## Extensibility Points
+## Deferred Components
 
-The following are designed extension points where community contributions are explicitly welcome:
+The following components from the original design are explicitly deferred. Each entry states why it is not needed for the MVP and when it becomes necessary.
 
-| Extension Point | What you can add |
-|---|---|
-| `integrations/` | New AI tool integrations |
-| `kernel/memory/backends/` | New storage backends (Redis, PostgreSQL, etc.) |
-| `kernel/router.py` | Custom routing strategies |
-| Plugin entry points | Integrations distributed as separate packages |
-| `adapters/` | New adapter interfaces for new interaction patterns |
+| Component | Deferred Until | Reason |
+|---|---|---|
+| **Task Router** | Version 2 (multi-tool) | With one worker, routing is `return shell_worker`. A scoring function adds complexity without value until there are at least two integrations to choose from. |
+| **Context Manager** | Version 2 | Injecting relevant context per tool call requires knowing the tool's token budget. With one worker and no token management, the goal string is the only context needed. |
+| **Memory Manager** | Version 2 | Cross-session memory and semantic search are valuable but require ChromaDB or a vector store. A simple JSON run log is sufficient for MVP history. |
+| **Event Bus** | Version 2 | An in-process pub/sub system decouples components for real-time UI updates and audit logging. With one synchronous CLI workflow, direct function calls are simpler and equally correct. |
+| **Plugin System** | Version 3 | `importlib.metadata` entry points enable community integrations distributed as separate packages. This requires a stable adapter interface API and a mature ecosystem — both are Version 2+ concerns. |
+| **ContextAdapter interface** | Version 2 | Only needed when a tool requires project context injected into its calls. Not needed for the Shell integration. |
+| **CapabilityAdapter interface** | Version 2 | Only needed when the Task Router must score tools against tasks. Not needed with one worker. |
+| **LifecycleAdapter interface** | Version 2 | Only needed for integrations that require startup/shutdown (long-running subprocesses or servers). The Shell integration is stateless. |
+| **Web UI (FastAPI)** | Version 2 | A browser interface is useful for task timeline visualization and memory browsing. The CLI is sufficient for MVP and faster to build. |
+| **Programmatic API** | Version 2 | A stable Python API for third-party scripts is a V2 concern after the internal API stabilizes through MVP usage. |
+| **Copilot integration** | Version 2 | A second worker is only useful after the routing layer exists. Adding it before the router creates dead code. |
+| **OpenHands integration** | Version 2 | Same as Copilot. |
+| **Claude Code integration** | Version 2 | Same as Copilot. |
+| **SQLAlchemy + Alembic** | Version 2 | Relational storage and schema migrations are needed for shared team memory and multi-user scenarios. JSON is sufficient for single-developer MVP history. |
+| **ChromaDB (semantic memory)** | Version 3 | Semantic search over task history dramatically improves context relevance. Requires an embedding model and vector store. Not needed until Memory Manager V2. |
+| **Token-budget-aware context assembly** | Version 2 | Staying within a tool's token limit while maximizing context relevance is a non-trivial problem. It is only worth solving when context injection is implemented. |
+| **Multi-user / team features** | Version 3 | Shared memory, per-user namespaces, audit log, and role-based access require PostgreSQL, authentication, and significant infrastructure. |
+| **OpenTelemetry / observability** | Version 3 | Traces and metrics are valuable when running OrchestrAI as a persistent service. Not needed for a local CLI tool. |

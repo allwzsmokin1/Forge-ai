@@ -145,9 +145,8 @@ All contributors must read [ARCHITECTURE.md](ARCHITECTURE.md) before contributin
 
 1. **No circular imports** — `ruff` checks import order; `mypy` catches circular type dependencies.
 2. **Kernel has no direct imports from `integrations/`** — the kernel depends only on adapter interfaces.
-3. **No raw `open()` calls outside `kernel/memory/backends/`** — all disk I/O goes through the storage abstraction.
-4. **No hardcoded configuration values** — all configuration goes through `kernel/config.py`.
-5. **No test code in production code** — no `if __name__ == "__main__"` blocks in library code.
+3. **No hardcoded configuration values** — all configuration goes through `kernel/config.py`.
+4. **No test code in production code** — no `if __name__ == "__main__"` blocks in library code.
 
 ---
 
@@ -155,24 +154,16 @@ All contributors must read [ARCHITECTURE.md](ARCHITECTURE.md) before contributin
 
 Integrations live in `integrations/<tool-name>/`. Each integration must:
 
-1. Implement the `TaskAdapter` interface at minimum.
-2. Implement `CapabilityAdapter` to declare what the tool is good at.
-3. Implement `LifecycleAdapter` if the tool requires startup/shutdown (e.g., a subprocess or server).
-4. Include its own tests in `tests/integration/<tool-name>/`.
-5. Include a `README.md` in the integration directory explaining setup and configuration.
-6. Add a dependency health checklist for any new packages it requires.
+1. Implement the `TaskAdapter` interface.
+2. Include its own tests in `tests/integration/<tool-name>/`.
+3. Include a `README.md` in the integration directory explaining setup and configuration.
+4. Add a dependency health checklist for any new packages it requires.
+
+The Shell integration (`integrations/shell/`) is the reference implementation.
+
+> **Note**: `CapabilityAdapter` and `LifecycleAdapter` are deferred to Version 2. New integrations only need to implement `TaskAdapter` for the MVP milestone.
 
 See `docs/integrations/README.md` for the full integration guide.
-
----
-
-## Adding a New Memory Backend
-
-Storage backends live in `kernel/memory/backends/`. Each backend must:
-
-1. Implement the `StorageBackend` abstract base class.
-2. Pass the backend test suite in `tests/unit/kernel/memory/`.
-3. Include configuration documentation.
 
 ---
 

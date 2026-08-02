@@ -13,24 +13,24 @@
 
 OrchestrAI is **not** another coding assistant.
 
-It is an **AI Operating Environment** — a coordination layer that sits above tools like GitHub Copilot, OpenHands, Claude Code, Codex, and any other AI agent. It plans the work, preserves long-term project memory, manages context windows, and routes each task to the best available tool automatically.
+It is an **AI Operating Environment** — a coordination layer that sits above tools like GitHub Copilot, OpenHands, Claude Code, and any other AI agent. It plans the work, preserves long-term project memory, and routes each task to the best available tool automatically.
 
 Think of it as a **Mission Director** for your AI toolkit.
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   Your Interface                     │
-│              (CLI / Web UI / API)                    │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│              OrchestrAI Kernel                       │
-│   Mission Director · Context Manager · Memory        │
-└──────┬──────────┬──────────────┬────────────────────┘
-       │          │              │
-  ┌────▼───┐ ┌────▼────┐  ┌─────▼──────┐
-  │Copilot │ │OpenHands│  │Claude Code │  ...and more
-  └────────┘ └─────────┘  └────────────┘
+┌─────────────────────────────────┐
+│           CLI (Typer)           │
+└────────────────┬────────────────┘
+                 │
+┌────────────────▼────────────────┐
+│       OrchestrAI Kernel         │
+│       Mission Director          │
+└────────────────┬────────────────┘
+                 │  TaskAdapter
+┌────────────────▼────────────────┐
+│     Shell integration (MVP)     │
+│   (+ more tools in Version 2)   │
+└─────────────────────────────────┘
 ```
 
 ## Why OrchestrAI Exists
@@ -39,10 +39,28 @@ Modern AI coding tools are powerful but isolated. Each has its own context, memo
 
 OrchestrAI solves this by providing:
 
-- **Persistent project memory** — decisions, architecture, codebase history, and lessons learned survive across sessions and across tools.
-- **Intelligent task routing** — the Mission Director analyzes each task and dispatches it to the tool best suited for it.
-- **Unified context management** — all tools share the same project context without hitting token limits.
+- **Mission planning** — describe a goal; OrchestrAI decomposes it into ordered tasks.
+- **Persistent project memory** — decisions and history survive across sessions and across tools (Version 2+).
+- **Intelligent task routing** — route each task to the tool best suited for it (Version 2+).
 - **Tool agnosticism** — plug in any AI tool through a standardized adapter interface.
+
+## MVP Scope
+
+The current milestone (Milestone 1) ships one complete loop: **one goal, one worker**.
+
+| Component | MVP | Version 2+ |
+|---|---|---|
+| Mission Director | ✅ | — |
+| Shell integration | ✅ | — |
+| CLI (`run`, `history`) | ✅ | — |
+| JSON run history | ✅ | — |
+| Memory Manager | — | ✅ |
+| Context Manager | — | ✅ |
+| Task Router | — | ✅ |
+| Web UI | — | ✅ |
+| Multi-tool integrations | — | ✅ |
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the complete list of deferred components and their rationale.
 
 ## Core Principles
 
@@ -57,11 +75,11 @@ OrchestrAI solves this by providing:
 ## Repository Structure
 
 ```
-orchestrai/
-├── kernel/              # Mission Director, context manager, task router
-├── integrations/        # Connectors for external AI tools (Copilot, OpenHands, etc.)
-├── adapters/            # Standardized adapter interfaces
-├── ui/                  # CLI and optional web interface
+forge/
+├── kernel/              # Mission Director only (MVP)
+├── integrations/        # Shell integration (MVP); more in V2+
+├── adapters/            # TaskAdapter interface (MVP); more in V2+
+├── ui/                  # CLI (MVP); web interface in V2+
 ├── tests/               # All tests
 ├── examples/            # Working usage examples
 └── docs/                # Full project documentation
@@ -72,8 +90,8 @@ orchestrai/
 | Document | Purpose |
 |---|---|
 | [MISSION.md](MISSION.md) | Project purpose, non-goals, and long-term vision |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System design, component relationships, data flows |
-| [REUSE_FIRST_BLUEPRINT.md](REUSE_FIRST_BLUEPRINT.md) | Inventory of reused OSS components and rationale |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | MVP system design, deferred components, and data flows |
+| [REUSE_FIRST_BLUEPRINT.md](REUSE_FIRST_BLUEPRINT.md) | MVP and deferred dependency inventory |
 | [STACK_DECISIONS.md](STACK_DECISIONS.md) | Technology choices with alternatives considered |
 | [ROADMAP.md](ROADMAP.md) | Milestone plan from MVP to full release |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute, coding standards, review process |
@@ -90,7 +108,7 @@ pip install orchestrai
 orchestrai init
 
 # Run the Mission Director
-orchestrai run "Refactor the authentication module to use JWT"
+orchestrai run "Audit this codebase for TODO comments and generate a report"
 ```
 
 ## Current Status
