@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from .execution_provider import ExecutionProvider
 from .mission_log import MissionLog
 from .models import Mission, MissionStatus, TaskRecord
+from .provider_registry import default_registry
 from .shell_provider import ShellExecutionProvider
 
 
@@ -26,9 +27,14 @@ class MissionDirector:
     """Orchestrate a single mission from creation through completion.
 
     Args:
-        provider:  The :class:`ExecutionProvider` to use for execution.
+        provider:      The :class:`ExecutionProvider` to use for execution.
             Defaults to :class:`~forge.kernel.shell_provider.ShellExecutionProvider`.
-        log:       The :class:`MissionLog` to persist finished missions.
+            Ignored when *provider_name* is given.
+        provider_name: Name of a provider registered in
+            :data:`~forge.kernel.provider_registry.default_registry`.
+            When supplied the registry is consulted and the resolved provider
+            is used, so the caller never needs to import the concrete class.
+        log:           The :class:`MissionLog` to persist finished missions.
             Defaults to ``MissionLog()`` (writes to ``.forge/missions.json``).
     """
 
@@ -36,8 +42,13 @@ class MissionDirector:
         self,
         provider: ExecutionProvider | None = None,
         log: MissionLog | None = None,
+        *,
+        provider_name: str | None = None,
     ) -> None:
-        self._provider: ExecutionProvider = provider or ShellExecutionProvider()
+        if provider_name is not None:
+            self._provider: ExecutionProvider = default_registry.get(provider_name)
+        else:
+            self._provider = provider or ShellExecutionProvider()
         self._log: MissionLog = log or MissionLog()
 
     # ------------------------------------------------------------------

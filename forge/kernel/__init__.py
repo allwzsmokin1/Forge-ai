@@ -8,6 +8,7 @@ from .director import MissionDirector
 from .execution_provider import ExecutionProvider, ExecutionResult
 from .mission_log import MissionLog
 from .models import Mission, MissionStatus, TaskRecord
+from .provider_registry import ProviderRegistry, default_registry
 from .shell_provider import ShellExecutionProvider
 
 __all__ = [
@@ -17,6 +18,8 @@ __all__ = [
     "MissionDirector",
     "MissionLog",
     "MissionStatus",
+    "ProviderRegistry",
     "ShellExecutionProvider",
     "TaskRecord",
+    "default_registry",
 ]
